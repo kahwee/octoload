@@ -20,6 +20,20 @@ export class S3StorageAdapter implements StorageAdapterInterface {
   private isR2: boolean;
 
   constructor(config: StorageAdapter) {
+    // Validate configuration
+    if (!config.bucket) {
+      throw new Error('Bucket name is required');
+    }
+    if (!config.region) {
+      throw new Error('Region is required');
+    }
+    if (!config.credentials.accessKeyId) {
+      throw new Error('Access Key ID is required');
+    }
+    if (!config.credentials.secretAccessKey) {
+      throw new Error('Secret Access Key is required');
+    }
+
     const clientConfig: {
       region: string;
       credentials: { accessKeyId: string; secretAccessKey: string };
@@ -66,6 +80,11 @@ export class S3StorageAdapter implements StorageAdapterInterface {
     uploadId: string;
     parts: { partNumber: number; uploadUrl: string }[];
   }> {
+    // Validate part count (S3 limits: 1-10,000 parts)
+    if (partCount < 1 || partCount > 10000) {
+      throw new Error('Part count must be between 1 and 10000');
+    }
+
     // Initialize multipart upload
     const createCommand = new CreateMultipartUploadCommand({
       Bucket: this.bucket,
@@ -103,12 +122,20 @@ export class S3StorageAdapter implements StorageAdapterInterface {
     uploadId: string,
     parts: { partNumber: number; etag: string }[]
   ): Promise<void> {
+    // Validate parts array
+    if (!parts || parts.length === 0) {
+      throw new Error('Parts array cannot be empty');
+    }
+
+    // Sort parts by part number for S3 compatibility
+    const sortedParts = [...parts].sort((a, b) => a.partNumber - b.partNumber);
+
     const command = new CompleteMultipartUploadCommand({
       Bucket: this.bucket,
       Key: key,
       UploadId: uploadId,
       MultipartUpload: {
-        Parts: parts.map((part) => ({
+        Parts: sortedParts.map((part) => ({
           ETag: part.etag,
           PartNumber: part.partNumber,
         })),
@@ -120,15 +147,19 @@ export class S3StorageAdapter implements StorageAdapterInterface {
 
   getPublicUrl(key: string): string {
     if (this.isR2) {
-      // R2 public URL format
+      // R2 public URL format - use custom domain if available
       const endpoint = this.client.config.endpoint;
       if (typeof endpoint === 'string') {
         return `${endpoint}/${this.bucket}/${key}`;
       }
     }
 
-    // S3 public URL format
-    return `https://${this.bucket}.s3.amazonaws.com/${key}`;
+    // S3 public URL format - use region-specific endpoint
+    const region = this.client.config.region;
+    if (region === 'us-east-1') {
+      return `https://${this.bucket}.s3.amazonaws.com/${key}`;
+    }
+    return `https://${this.bucket}.s3.${region}.amazonaws.com/${key}`;
   }
 
   async getPrivateUrl(key: string, expiresIn: number = 3600): Promise<string> {

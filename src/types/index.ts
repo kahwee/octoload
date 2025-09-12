@@ -121,7 +121,9 @@ export interface VariantRecord {
 // Validation schemas
 export const presignRequestSchema = z.object({
   filename: z.string().min(1).max(255),
-  contentType: z.string().regex(/^image\/[a-z+]+$/),
+  contentType: z
+    .string()
+    .regex(/^image\/[a-z0-9+\-.]+$/i, 'Invalid content type'),
   byteSize: z.number().min(1),
   strategy: z.enum(['single', 'multipart']).default('single'),
   ownerId: z.string().uuid().optional(),
