@@ -64,7 +64,7 @@ program
   .action(addAdapterCommand);
 
 // Global error handler
-program.exitOverride().hook('preAction', (_thisCommand) => {
+program.hook('preAction', (_thisCommand) => {
   // Set up global error handling
   process.on('unhandledRejection', (error) => {
     console.error('❌ Error:', error);
@@ -72,9 +72,26 @@ program.exitOverride().hook('preAction', (_thisCommand) => {
   });
 });
 
+// Type guard for Commander.js errors
+function isCommanderError(error: unknown): error is { code: string } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof (error as any).code === 'string'
+  );
+}
+
 try {
   await program.parseAsync();
 } catch (error) {
-  console.error('❌ CLI Error:', error);
-  process.exit(1);
+  // Only handle real errors, not help/version display
+  if (
+    !isCommanderError(error) ||
+    (error.code !== 'commander.helpDisplayed' &&
+      error.code !== 'commander.version')
+  ) {
+    console.error('❌ CLI Error:', error);
+    process.exit(1);
+  }
 }
