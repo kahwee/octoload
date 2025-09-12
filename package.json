@@ -1,6 +1,6 @@
 {
   "name": "octoload",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Minimal, composable image upload system with CLI for generating Drizzle schemas and typed clients",
   "main": "dist/index.js",
@@ -84,7 +84,7 @@
     "@aws-sdk/s3-request-presigner": "^3.887.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "commander": "^14.0.0",
-    "drizzle-kit": "^0.31.0",
+    "drizzle-kit": "^0.18.1",
     "drizzle-orm": "^0.44.0",
     "zod": "^4.1.8"
   },
@@ -104,7 +104,6 @@
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
-    "drizzle-kit": "^0.31.0",
     "drizzle-orm": "^0.44.0"
   },
   "files": [
