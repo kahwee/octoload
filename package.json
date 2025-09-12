@@ -39,6 +39,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "coverage": "vitest run --coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "fix": "prettier --write .",
@@ -83,8 +84,8 @@
     "@aws-sdk/s3-request-presigner": "^3.887.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "commander": "^14.0.0",
-    "drizzle-kit": "^0.31.4",
-    "drizzle-orm": "^0.44.5",
+    "drizzle-kit": "^0.31.0",
+    "drizzle-orm": "^0.44.0",
     "zod": "^4.1.8"
   },
   "devDependencies": {
