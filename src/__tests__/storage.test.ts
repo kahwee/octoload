@@ -142,9 +142,9 @@ describe('S3StorageAdapter', () => {
       const result = await adapter.headObject('test-file.jpg');
 
       expect(result).toEqual({
-        contentLength: 1024,
-        etag: 'abc123',
-        contentType: 'image/jpeg',
+        ContentLength: 1024,
+        ETag: '"abc123"',
+        ContentType: 'image/jpeg',
       });
     });
 

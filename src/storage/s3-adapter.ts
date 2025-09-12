@@ -11,10 +11,11 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type {
   StorageAdapter,
-  StorageAdapterInterface,
+  S3ClientConfig,
+  HeadObjectCommandOutput,
 } from '../types/index.js';
 
-export class S3StorageAdapter implements StorageAdapterInterface {
+export class S3StorageAdapter {
   private client: S3Client;
   private bucket: string;
   private isR2: boolean;
@@ -27,18 +28,15 @@ export class S3StorageAdapter implements StorageAdapterInterface {
     if (!config.region) {
       throw new Error('Region is required');
     }
-    if (!config.credentials.accessKeyId) {
+    if (!config.credentials?.accessKeyId) {
       throw new Error('Access Key ID is required');
     }
-    if (!config.credentials.secretAccessKey) {
+    if (!config.credentials?.secretAccessKey) {
       throw new Error('Secret Access Key is required');
     }
 
-    const clientConfig: {
-      region: string;
-      credentials: { accessKeyId: string; secretAccessKey: string };
-      endpoint?: string;
-    } = {
+    // Use AWS SDK configuration directly
+    const clientConfig: S3ClientConfig = {
       region: config.region,
       credentials: config.credentials,
     };
@@ -180,11 +178,11 @@ export class S3StorageAdapter implements StorageAdapterInterface {
     await this.client.send(command);
   }
 
-  async headObject(key: string): Promise<{
-    contentLength: number;
-    etag: string;
-    contentType: string;
-  }> {
+  async headObject(
+    key: string
+  ): Promise<
+    Pick<HeadObjectCommandOutput, 'ContentLength' | 'ETag' | 'ContentType'>
+  > {
     const command = new HeadObjectCommand({
       Bucket: this.bucket,
       Key: key,
@@ -193,9 +191,9 @@ export class S3StorageAdapter implements StorageAdapterInterface {
     const response = await this.client.send(command);
 
     return {
-      contentLength: response.ContentLength || 0,
-      etag: response.ETag?.replace(/"/g, '') || '',
-      contentType: response.ContentType || '',
+      ContentLength: response.ContentLength,
+      ETag: response.ETag,
+      ContentType: response.ContentType,
     };
   }
 }

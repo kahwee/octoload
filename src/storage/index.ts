@@ -1,12 +1,7 @@
-import type {
-  StorageAdapter,
-  StorageAdapterInterface,
-} from '../types/index.js';
+import type { StorageAdapter } from '../types/index.js';
 import { S3StorageAdapter } from './s3-adapter.js';
 
-export function createStorageAdapter(
-  config: StorageAdapter
-): StorageAdapterInterface {
+export function createStorageAdapter(config: StorageAdapter): S3StorageAdapter {
   switch (config.adapter) {
     case 's3':
     case 'r2':

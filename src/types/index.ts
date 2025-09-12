@@ -150,42 +150,12 @@ export const finalizeRequestSchema = z.object({
     .optional(),
 });
 
-// Storage adapter interface
-export interface StorageAdapterInterface {
-  getPresignedPutUrl(
-    key: string,
-    contentType: string,
-    expiresIn: number
-  ): Promise<{ url: string; fields?: Record<string, string> }>;
-
-  getMultipartUpload(
-    key: string,
-    contentType: string,
-    partCount: number,
-    expiresIn: number
-  ): Promise<{
-    uploadId: string;
-    parts: { partNumber: number; uploadUrl: string }[];
-  }>;
-
-  completeMultipartUpload(
-    key: string,
-    uploadId: string,
-    parts: { partNumber: number; etag: string }[]
-  ): Promise<void>;
-
-  getPublicUrl(key: string): string;
-
-  getPrivateUrl(key: string, expiresIn: number): Promise<string>;
-
-  deleteObject(key: string): Promise<void>;
-
-  headObject(key: string): Promise<{
-    contentLength: number;
-    etag: string;
-    contentType: string;
-  }>;
-}
+// Re-export AWS SDK types for storage operations
+export type {
+  S3ClientConfig,
+  HeadObjectCommandOutput,
+  CompleteMultipartUploadCommandOutput,
+} from '@aws-sdk/client-s3';
 
 // Framework handler types - simplified for compatibility
 export type FrameworkRequest = Request;
