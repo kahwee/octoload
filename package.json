@@ -84,7 +84,7 @@
     "@aws-sdk/s3-request-presigner": "^3.887.0",
     "@paralleldrive/cuid2": "^2.2.2",
     "commander": "^14.0.0",
-    "drizzle-kit": "^0.18.1",
+    "drizzle-kit": "^0.31.4",
     "drizzle-orm": "^0.44.0",
     "zod": "^4.1.8"
   },
