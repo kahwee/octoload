@@ -1,4 +1,12 @@
-// Conditional type definitions for React Router compatibility
+import type { HandlerContext, HandlerOptions } from '../handlers/index.js';
+import {
+  createDeleteImageHandler,
+  createFinalizeHandler,
+  createGetImageHandler,
+  createPresignHandler,
+} from '../handlers/index.js';
+
+// Custom types that match React Router's function signature without extra properties
 type ActionFunctionArgs = {
   request: Request;
   params: Record<string, string | undefined>;
@@ -8,15 +16,6 @@ type LoaderFunctionArgs = {
   request: Request;
   params: Record<string, string | undefined>;
 };
-
-import type { HandlerContext, HandlerOptions } from '../handlers/index.js';
-import {
-  createDeleteImageHandler,
-  createFinalizeHandler,
-  createGetImageHandler,
-  createPresignHandler,
-} from '../handlers/index.js';
-
 export interface ReactRouterHandlerOptions
   extends Omit<HandlerOptions, 'getUser'> {
   getUser?: (

@@ -2,12 +2,12 @@
 
 import { Command } from 'commander';
 import { readFile } from 'fs/promises';
-import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { initCommand } from './commands/init.js';
-import { generateCommand } from './commands/generate.js';
-import { migrateCommand } from './commands/migrate.js';
+import { fileURLToPath } from 'url';
 import { addAdapterCommand } from './commands/add-adapter.js';
+import { generateCommand } from './commands/generate.js';
+import { initCommand } from './commands/init.js';
+import { migrateCommand } from './commands/migrate.js';
 
 // Get version from package.json dynamically
 const __filename = fileURLToPath(import.meta.url);

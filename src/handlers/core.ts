@@ -1,3 +1,5 @@
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { PgDatabase } from 'drizzle-orm/pg-core';
 import type {
   FinalizeRequest,
   ImageRecord,
@@ -6,10 +8,8 @@ import type {
   PresignResponse,
 } from '../types/index.js';
 
-// Simplified types for Drizzle integration that avoid 'any' but remain practical
-export interface DrizzleDB {
-  [key: string]: unknown;
-}
+// Use proper Drizzle types for better type safety
+export type DrizzleDB = PgDatabase<any> | NodePgDatabase<any>;
 
 export interface DrizzleSchema {
   [key: string]: unknown;
