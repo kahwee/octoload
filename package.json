@@ -46,6 +46,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc",
+    "update-all-package": "npx npm-check-updates -u && npm install",
     "prepublishOnly": "npm run typecheck && npm run lint && npm run build"
   },
   "keywords": [
@@ -80,17 +81,17 @@
   },
   "packageManager": "npm@11.6.0",
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.887.0",
-    "@aws-sdk/s3-request-presigner": "^3.887.0",
+    "@aws-sdk/client-s3": "^3.888.0",
+    "@aws-sdk/s3-request-presigner": "^3.888.0",
     "@paralleldrive/cuid2": "^2.2.2",
-    "commander": "^14.0.0",
-    "drizzle-kit": "^0.18.1",
-    "drizzle-orm": "^0.44.0",
+    "commander": "^14.0.1",
+    "drizzle-kit": "^0.31.4",
+    "drizzle-orm": "^0.44.5",
     "zod": "^4.1.8"
   },
   "devDependencies": {
-    "@types/node": "^24.3.1",
-    "@types/react": "^19.1.12",
+    "@types/node": "^24.3.3",
+    "@types/react": "^19.1.13",
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.35.0",
     "eslint-config-prettier": "^10.1.8",
@@ -98,7 +99,7 @@
     "globals": "^16.4.0",
     "next": "^15.5.3",
     "prettier": "^3.6.2",
-    "react-router": "^7.8.2",
+    "react-router": "^7.9.1",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.43.0",
     "vitest": "^3.2.4"
