@@ -43,6 +43,8 @@ export interface PresignRequest {
   strategy?: 'single' | 'multipart';
   ownerId?: string;
   orgId?: string;
+  entityType?: string; // e.g., 'application', 'user'
+  entityId?: string; // UUID of the associated entity
   isPublic?: boolean;
   alt?: string;
   title?: string;
@@ -68,7 +70,7 @@ export interface FinalizeRequest {
 }
 
 export interface PresignContext extends PresignRequest {
-  user?: { id: string; [key: string]: unknown }; // Framework-specific user object
+  user?: { id: string;[key: string]: unknown }; // Framework-specific user object
 }
 
 // Database record types
@@ -76,6 +78,8 @@ export interface ImageRecord {
   id: string;
   ownerId?: string;
   orgId?: string;
+  entityType?: string; // e.g., 'appliance', 'recipe', 'user'
+  entityId?: string; // UUID of the associated entity
   filename: string;
   contentType: string;
   byteSize: number;
@@ -103,13 +107,13 @@ export interface VariantRecord {
   id: string;
   imageId: string;
   variant:
-    | 'original'
-    | 'thumb'
-    | 'webp'
-    | 'avif'
-    | 'small'
-    | 'medium'
-    | 'large';
+  | 'original'
+  | 'thumb'
+  | 'webp'
+  | 'avif'
+  | 'small'
+  | 'medium'
+  | 'large';
   width?: number;
   height?: number;
   byteSize: number;
@@ -128,6 +132,8 @@ export const presignRequestSchema = z.object({
   strategy: z.enum(['single', 'multipart']).default('single'),
   ownerId: z.string().uuid().optional(),
   orgId: z.string().uuid().optional(),
+  entityType: z.string().max(50).optional(),
+  entityId: z.string().uuid().optional(),
   isPublic: z.boolean().default(false),
   alt: z.string().max(500).optional(),
   title: z.string().max(255).optional(),
@@ -152,9 +158,7 @@ export const finalizeRequestSchema = z.object({
 
 // Re-export AWS SDK types for storage operations
 export type {
-  S3ClientConfig,
-  HeadObjectCommandOutput,
-  CompleteMultipartUploadCommandOutput,
+  CompleteMultipartUploadCommandOutput, HeadObjectCommandOutput, S3ClientConfig
 } from '@aws-sdk/client-s3';
 
 // Framework handler types - simplified for compatibility
