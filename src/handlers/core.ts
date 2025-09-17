@@ -1,16 +1,16 @@
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { PgDatabase } from 'drizzle-orm/pg-core';
 import type {
   FinalizeRequest,
   ImageRecord,
-  OctoloadConfig,
+  OctoloadConfigLike,
   PresignRequest,
   PresignResponse,
 } from '../types/index.js';
 
 // Use proper Drizzle types for better type safety
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type DrizzleDB = PgDatabase<any> | NodePgDatabase<any>;
+
+// Use a permissive type for tests and user implementations
+// Specific projects can narrow this when integrating.
+export type DrizzleDB = any;
 
 export interface DrizzleSchema {
   [key: string]: unknown;
@@ -23,11 +23,15 @@ export interface DrizzleSchema {
  * handlers from `npx octoload init` for actual functionality.
  */
 export class OctoloadCore {
-  private config: OctoloadConfig;
+  private config: OctoloadConfigLike;
   private db: DrizzleDB;
   private schema: DrizzleSchema;
 
-  constructor(config: OctoloadConfig, db: DrizzleDB, schema: DrizzleSchema) {
+  constructor(
+    config: OctoloadConfigLike,
+    db: DrizzleDB,
+    schema: DrizzleSchema
+  ) {
     this.config = config;
     this.db = db;
     this.schema = schema;
