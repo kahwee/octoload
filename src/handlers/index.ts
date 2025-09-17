@@ -1,6 +1,6 @@
 import type {
   FinalizeRequest,
-  OctoloadConfig,
+  OctoloadConfigLike,
   PresignRequest,
 } from '../types/index.js';
 import type { DrizzleDB, DrizzleSchema } from './core.js';
@@ -13,9 +13,12 @@ export interface HandlerContext {
 }
 
 export interface HandlerOptions {
-  config: OctoloadConfig;
+  config: OctoloadConfigLike;
   db: DrizzleDB;
   schema: DrizzleSchema;
+  // Optional storage adapter can be provided directly for testing or integration
+  storage?: unknown;
+  requireAuth?: boolean;
   getUser?: (context: HandlerContext) => Promise<{ id: string } | null>;
 }
 
@@ -24,6 +27,24 @@ export function createPresignHandler(options: HandlerOptions) {
 
   return async (request: Request, context?: HandlerContext) => {
     try {
+      // Check authentication if required
+      if (options.requireAuth) {
+        let user = context?.user;
+        if (options.getUser && context) {
+          const authUser = await options.getUser(context);
+          user = authUser || undefined;
+        }
+        if (!user) {
+          return new Response(
+            JSON.stringify({ error: 'Authentication required' }),
+            {
+              status: 401,
+              headers: { 'Content-Type': 'application/json' },
+            }
+          );
+        }
+      }
+
       const body = await request.json();
       const presignRequest = body as PresignRequest;
 
@@ -33,6 +54,8 @@ export function createPresignHandler(options: HandlerOptions) {
         if (user) {
           presignRequest.ownerId = user.id;
         }
+      } else if (context?.user) {
+        presignRequest.ownerId = context.user.id;
       }
 
       const result = await core.presign(presignRequest);
@@ -90,6 +113,8 @@ export function createGetImageHandler(options: HandlerOptions) {
       if (options.getUser && context) {
         const user = await options.getUser(context);
         userId = user?.id;
+      } else if (context?.user) {
+        userId = context.user.id;
       }
 
       const result = await core.getImage(imageId, userId);
@@ -122,12 +147,32 @@ export function createDeleteImageHandler(options: HandlerOptions) {
     context?: HandlerContext
   ) => {
     try {
+      // Check authentication if required
+      if (options.requireAuth) {
+        let user = context?.user;
+        if (options.getUser && context) {
+          const authUser = await options.getUser(context);
+          user = authUser || undefined;
+        }
+        if (!user) {
+          return new Response(
+            JSON.stringify({ error: 'Authentication required' }),
+            {
+              status: 401,
+              headers: { 'Content-Type': 'application/json' },
+            }
+          );
+        }
+      }
+
       let userId: string | undefined;
 
       // Get user if auth is configured
       if (options.getUser && context) {
         const user = await options.getUser(context);
         userId = user?.id;
+      } else if (context?.user) {
+        userId = context.user.id;
       }
 
       await core.deleteImage(imageId, userId);

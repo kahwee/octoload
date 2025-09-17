@@ -9,12 +9,12 @@ import {
 // Custom types that match React Router's function signature without extra properties
 type ActionFunctionArgs = {
   request: Request;
-  params: Record<string, string | undefined>;
+  params?: Record<string, string | undefined>;
 };
 
 type LoaderFunctionArgs = {
   request: Request;
-  params: Record<string, string | undefined>;
+  params?: Record<string, string | undefined>;
 };
 export interface ReactRouterHandlerOptions
   extends Omit<HandlerOptions, 'getUser'> {
@@ -59,7 +59,7 @@ export function createReactRouterGetImageHandler(
   const baseHandler = createGetImageHandler(baseOptions);
 
   return async ({ request, params }: LoaderFunctionArgs) => {
-    const imageId = params.imageId;
+    const imageId = params?.imageId;
     if (!imageId) {
       return new Response('Image ID required', { status: 400 });
     }
@@ -82,7 +82,7 @@ export function createReactRouterDeleteImageHandler(
   const baseHandler = createDeleteImageHandler(baseOptions);
 
   return async ({ request, params }: ActionFunctionArgs) => {
-    const imageId = params.imageId;
+    const imageId = params?.imageId;
     if (!imageId) {
       return new Response('Image ID required', { status: 400 });
     }

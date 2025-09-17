@@ -32,7 +32,29 @@ function generateDrizzleSchema(): string {
   text,
   boolean,
 } from 'drizzle-orm/pg-core';
-import { createId } from '@paralleldrive/cuid2';
+
+/**
+ * Universal UUID generation utility
+ * Works in both Node.js and browser environments
+ */
+function generateUUID(): string {
+  // Check if we're in a browser environment with crypto.randomUUID
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  
+  // Check if we're in Node.js with crypto.randomUUID
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  
+  // Fallback: manual UUID v4 generation
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 // Enums
 export const imageStatusEnum = pgEnum('image_status', [
@@ -53,7 +75,7 @@ export const assetVariantEnum = pgEnum('asset_variant', [
 
 // Images table
 export const images = pgTable('images', {
-  id: uuid('id').primaryKey().$defaultFn(() => createId()),
+  id: uuid('id').primaryKey().$defaultFn(() => generateUUID()),
   ownerId: uuid('owner_id'), // nullable for public uploads
   orgId: uuid('org_id'), // nullable for personal uploads
   entityType: varchar('entity_type', { length: 50 }), // e.g., 'appliance', 'recipe', 'user'
@@ -74,7 +96,7 @@ export const images = pgTable('images', {
 
 // Upload sessions for multipart uploads
 export const uploadSessions = pgTable('upload_sessions', {
-  id: uuid('id').primaryKey().$defaultFn(() => createId()),
+  id: uuid('id').primaryKey().$defaultFn(() => generateUUID()),
   imageId: uuid('image_id').references(() => images.id, { onDelete: 'cascade' }),
   uploadId: varchar('upload_id', { length: 255 }), // S3 multipart upload ID
   partCount: integer('part_count').notNull().default(1),
@@ -84,7 +106,7 @@ export const uploadSessions = pgTable('upload_sessions', {
 
 // Asset variants for different sizes/formats
 export const assetVariants = pgTable('asset_variants', {
-  id: uuid('id').primaryKey().$defaultFn(() => createId()),
+  id: uuid('id').primaryKey().$defaultFn(() => generateUUID()),
   imageId: uuid('image_id').notNull().references(() => images.id, { onDelete: 'cascade' }),
   variant: assetVariantEnum('variant').notNull(),
   width: integer('width'),
@@ -97,7 +119,7 @@ export const assetVariants = pgTable('asset_variants', {
 
 // Image tags for organization
 export const imageTags = pgTable('image_tags', {
-  id: uuid('id').primaryKey().$defaultFn(() => createId()),
+  id: uuid('id').primaryKey().$defaultFn(() => generateUUID()),
   imageId: uuid('image_id').notNull().references(() => images.id, { onDelete: 'cascade' }),
   tag: varchar('tag', { length: 50 }).notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),

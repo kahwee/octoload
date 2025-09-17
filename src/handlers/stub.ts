@@ -1,7 +1,7 @@
 import type {
   FinalizeRequest,
   ImageRecord,
-  OctoloadConfig,
+  OctoloadConfigLike,
   PresignRequest,
   PresignResponse,
 } from '../types/index.js';
@@ -14,11 +14,15 @@ import type { DrizzleDB, DrizzleSchema } from './core.js';
  */
 
 export class OctoloadCore {
-  private config: OctoloadConfig;
+  private config: OctoloadConfigLike;
   private db: DrizzleDB;
   private schema: DrizzleSchema;
 
-  constructor(config: OctoloadConfig, db: DrizzleDB, schema: DrizzleSchema) {
+  constructor(
+    config: OctoloadConfigLike,
+    db: DrizzleDB,
+    schema: DrizzleSchema
+  ) {
     this.config = config;
     this.db = db;
     this.schema = schema;

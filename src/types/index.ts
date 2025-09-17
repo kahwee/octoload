@@ -2,13 +2,15 @@ import { z } from 'zod';
 
 // Configuration types
 export interface StorageAdapter {
-  adapter: 's3' | 'r2';
+  adapter: string; // allow flexible adapter identifier (e.g. 's3' | 'r2')
   bucket: string;
   region: string;
   endpoint?: string; // For R2
   credentials: {
     accessKeyId: string;
     secretAccessKey: string;
+    // Some providers (e.g. Cloudflare R2) may include a session token
+    sessionToken?: string;
   };
 }
 
@@ -26,6 +28,7 @@ export interface OctoloadHooks {
 }
 
 export interface OctoloadConfig {
+  // New structured config
   storage: StorageAdapter;
   limits: OctoloadLimits;
   hooks?: OctoloadHooks;
@@ -34,6 +37,28 @@ export interface OctoloadConfig {
     tablePrefix?: string;
   };
 }
+
+// Backwards-compatible legacy config shape used in older templates/tests
+export interface LegacyOctoloadConfig {
+  adapter: string;
+  bucket: string;
+  region: string;
+  endpoint?: string;
+  credentials: {
+    accessKeyId: string;
+    secretAccessKey: string;
+    sessionToken?: string;
+  };
+  limits?: Partial<OctoloadLimits>;
+  hooks?: OctoloadHooks;
+  db?: {
+    schema?: string;
+    tablePrefix?: string;
+  };
+}
+
+// Accept either the new structured config or the legacy flattened config
+export type OctoloadConfigLike = OctoloadConfig | LegacyOctoloadConfig;
 
 // Request/Response types
 export interface PresignRequest {
@@ -70,7 +95,7 @@ export interface FinalizeRequest {
 }
 
 export interface PresignContext extends PresignRequest {
-  user?: { id: string;[key: string]: unknown }; // Framework-specific user object
+  user?: { id: string; [key: string]: unknown }; // Framework-specific user object
 }
 
 // Database record types
@@ -107,13 +132,13 @@ export interface VariantRecord {
   id: string;
   imageId: string;
   variant:
-  | 'original'
-  | 'thumb'
-  | 'webp'
-  | 'avif'
-  | 'small'
-  | 'medium'
-  | 'large';
+    | 'original'
+    | 'thumb'
+    | 'webp'
+    | 'avif'
+    | 'small'
+    | 'medium'
+    | 'large';
   width?: number;
   height?: number;
   byteSize: number;
@@ -158,7 +183,9 @@ export const finalizeRequestSchema = z.object({
 
 // Re-export AWS SDK types for storage operations
 export type {
-  CompleteMultipartUploadCommandOutput, HeadObjectCommandOutput, S3ClientConfig
+  CompleteMultipartUploadCommandOutput,
+  HeadObjectCommandOutput,
+  S3ClientConfig,
 } from '@aws-sdk/client-s3';
 
 // Framework handler types - simplified for compatibility
