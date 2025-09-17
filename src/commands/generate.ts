@@ -56,6 +56,8 @@ export const images = pgTable('images', {
   id: uuid('id').primaryKey().$defaultFn(() => createId()),
   ownerId: uuid('owner_id'), // nullable for public uploads
   orgId: uuid('org_id'), // nullable for personal uploads
+  entityType: varchar('entity_type', { length: 50 }), // e.g., 'appliance', 'recipe', 'user'
+  entityId: uuid('entity_id'), // UUID of the associated entity
   filename: varchar('filename', { length: 255 }).notNull(),
   contentType: varchar('content_type', { length: 100 }).notNull(),
   byteSize: integer('byte_size').notNull(),
