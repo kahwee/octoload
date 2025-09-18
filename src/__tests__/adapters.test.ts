@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  createReactRouterDeleteImageHandler,
-  createReactRouterFinalizeHandler,
-  createReactRouterGetImageHandler,
-  createReactRouterPresignHandler,
-} from '../adapters/react-router.js';
-import {
   createNextJSDeleteImageHandler,
   createNextJSFinalizeHandler,
   createNextJSGetImageHandler,
   createNextJSPresignHandler,
 } from '../adapters/nextjs.js';
+import {
+  createReactRouterDeleteImageHandler,
+  createReactRouterFinalizeHandler,
+  createReactRouterGetImageHandler,
+  createReactRouterPresignHandler,
+} from '../adapters/react-router.js';
 
 // Mock the base handlers
 vi.mock('../handlers/index.js', () => ({
@@ -313,7 +313,7 @@ describe('Framework Adapters', () => {
         const handler = createNextJSGetImageHandler(mockHandlerOptions);
 
         const request = new Request('http://localhost/api/images/');
-        const context = { params: { imageId: undefined as any } };
+        const context = { params: { imageId: undefined as unknown as string } };
 
         const response = await handler(request, context);
 
@@ -359,7 +359,7 @@ describe('Framework Adapters', () => {
         const request = new Request('http://localhost/api/images/', {
           method: 'DELETE',
         });
-        const context = { params: { imageId: undefined as any } };
+        const context = { params: { imageId: undefined as unknown as string } };
 
         const response = await handler(request, context);
 
@@ -445,11 +445,11 @@ describe('Framework Adapters', () => {
 
       const rrResponse = await rrHandler({
         request,
-        params: { imageId: null as any },
+        params: { imageId: null as unknown as string },
       });
 
       const nextResponse = await nextHandler(request, {
-        params: { imageId: null as any },
+        params: { imageId: null as unknown as string },
       });
 
       // Since the base handlers are mocked, these will return mock responses

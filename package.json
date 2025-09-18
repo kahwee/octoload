@@ -40,7 +40,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "coverage": "vitest run --coverage",
-    "format": "prettier --write .",
+    "format": "prettier --write . --log-level warn",
     "format:check": "prettier --check .",
     "fix": "npm run lint:fix && npm run format",
     "lint": "eslint .",
