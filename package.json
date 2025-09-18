@@ -1,6 +1,6 @@
 {
   "name": "octoload",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "type": "module",
   "description": "Minimal, composable image upload system with CLI for generating Drizzle schemas and typed clients",
   "main": "dist/index.js",
@@ -32,8 +32,9 @@
     }
   },
   "scripts": {
-    "build": "npm run build:clean && npm run build:compile",
+    "build": "npm run build:clean && npm run build:generate-templates && npm run build:compile",
     "build:clean": "rm -rf dist",
+    "build:generate-templates": "node scripts/generate-template.js",
     "build:compile": "tsc",
     "dev": "tsc --watch",
     "test": "vitest run",

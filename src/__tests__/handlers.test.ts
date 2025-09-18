@@ -42,6 +42,7 @@ const mockDb = {
   update: vi.fn().mockReturnThis(),
   set: vi.fn().mockReturnThis(),
   delete: vi.fn().mockReturnThis(),
+  query: {},
 };
 
 // Mock schema
@@ -60,6 +61,9 @@ const mockSchema = {
   uploadSessions: {},
   assetVariants: {},
   imageTags: {},
+  imageStatusEnum: {},
+  assetVariantEnum: {},
+  tableNames: {},
 };
 
 describe('Handlers', () => {

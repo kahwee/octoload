@@ -196,4 +196,28 @@ export class S3StorageAdapter {
       ContentType: response.ContentType,
     };
   }
+
+  async objectExists(key: string): Promise<boolean> {
+    try {
+      const command = new HeadObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      });
+
+      await this.client.send(command);
+      return true;
+    } catch (error) {
+      // If object doesn't exist, S3 returns 404
+      if (
+        error &&
+        typeof error === 'object' &&
+        'name' in error &&
+        error.name === 'NotFound'
+      ) {
+        return false;
+      }
+      // Re-throw other errors (permissions, network, etc.)
+      throw error;
+    }
+  }
 }
