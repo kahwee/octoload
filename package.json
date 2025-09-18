@@ -1,6 +1,6 @@
 {
   "name": "octoload",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "description": "Minimal, composable image upload system with CLI for generating Drizzle schemas and typed clients",
   "main": "dist/index.js",

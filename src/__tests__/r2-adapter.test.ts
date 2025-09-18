@@ -284,7 +284,7 @@ describe('R2StorageAdapter (Cloudflare R2)', () => {
 
     it('should handle R2 bandwidth limits', async () => {
       // R2 has different bandwidth limits than S3
-      const largeFileSize = 100 * 1024 * 1024; // 100MB
+      const _largeFileSize = 100 * 1024 * 1024; // 100MB
 
       const mockSend = vi.fn().mockResolvedValue({
         UploadId: 'large-upload-id',
@@ -336,7 +336,7 @@ describe('R2StorageAdapter (Cloudflare R2)', () => {
 
     it('should handle R2 CORS configuration', async () => {
       // R2 requires proper CORS setup for browser uploads
-      const corsHeaders = {
+      const _corsHeaders = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'PUT, POST',
         'Access-Control-Allow-Headers': 'Content-Type',
