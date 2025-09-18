@@ -94,7 +94,9 @@ describe('Commands', () => {
       const generatedContent = mockWriteFileSync.mock.calls[0][1] as string;
 
       expect(generatedContent).toContain("from 'drizzle-orm/pg-core'");
-      expect(generatedContent).toContain('function generateUUID()');
+      expect(generatedContent).toContain(
+        "import { generateUUID } from '../utils/uuid.js'"
+      );
     });
   });
 

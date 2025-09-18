@@ -4,7 +4,7 @@ import type {
   PresignRequest,
 } from '../types/index.js';
 import type { DrizzleDB, DrizzleSchema } from './core.js';
-import { OctoloadCore } from './stub.js';
+import { OctoloadCore } from './core.js';
 
 export interface HandlerContext {
   request: Request;
@@ -12,18 +12,28 @@ export interface HandlerContext {
   params?: Record<string, string>;
 }
 
-export interface HandlerOptions {
+export interface HandlerOptions<
+  TDb extends DrizzleDB = DrizzleDB,
+  TSchema extends DrizzleSchema = DrizzleSchema,
+> {
   config: OctoloadConfigLike;
-  db: DrizzleDB;
-  schema: DrizzleSchema;
+  db: TDb;
+  schema: TSchema;
   // Optional storage adapter can be provided directly for testing or integration
   storage?: unknown;
   requireAuth?: boolean;
   getUser?: (context: HandlerContext) => Promise<{ id: string } | null>;
 }
 
-export function createPresignHandler(options: HandlerOptions) {
-  const core = new OctoloadCore(options.config, options.db, options.schema);
+export function createPresignHandler<
+  TDb extends DrizzleDB = DrizzleDB,
+  TSchema extends DrizzleSchema = DrizzleSchema,
+>(options: HandlerOptions<TDb, TSchema>) {
+  const core = new OctoloadCore<TDb, TSchema>(
+    options.config,
+    options.db,
+    options.schema
+  );
 
   return async (request: Request, context?: HandlerContext) => {
     try {
@@ -74,8 +84,15 @@ export function createPresignHandler(options: HandlerOptions) {
   };
 }
 
-export function createFinalizeHandler(options: HandlerOptions) {
-  const core = new OctoloadCore(options.config, options.db, options.schema);
+export function createFinalizeHandler<
+  TDb extends DrizzleDB = DrizzleDB,
+  TSchema extends DrizzleSchema = DrizzleSchema,
+>(options: HandlerOptions<TDb, TSchema>) {
+  const core = new OctoloadCore<TDb, TSchema>(
+    options.config,
+    options.db,
+    options.schema
+  );
 
   return async (request: Request) => {
     try {
@@ -98,8 +115,15 @@ export function createFinalizeHandler(options: HandlerOptions) {
   };
 }
 
-export function createGetImageHandler(options: HandlerOptions) {
-  const core = new OctoloadCore(options.config, options.db, options.schema);
+export function createGetImageHandler<
+  TDb extends DrizzleDB = DrizzleDB,
+  TSchema extends DrizzleSchema = DrizzleSchema,
+>(options: HandlerOptions<TDb, TSchema>) {
+  const core = new OctoloadCore<TDb, TSchema>(
+    options.config,
+    options.db,
+    options.schema
+  );
 
   return async (
     _request: Request,
@@ -138,8 +162,15 @@ export function createGetImageHandler(options: HandlerOptions) {
   };
 }
 
-export function createDeleteImageHandler(options: HandlerOptions) {
-  const core = new OctoloadCore(options.config, options.db, options.schema);
+export function createDeleteImageHandler<
+  TDb extends DrizzleDB = DrizzleDB,
+  TSchema extends DrizzleSchema = DrizzleSchema,
+>(options: HandlerOptions<TDb, TSchema>) {
+  const core = new OctoloadCore<TDb, TSchema>(
+    options.config,
+    options.db,
+    options.schema
+  );
 
   return async (
     _request: Request,
@@ -187,6 +218,53 @@ export function createDeleteImageHandler(options: HandlerOptions) {
 
       return new Response(JSON.stringify({ error: message }), {
         status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  };
+}
+
+export function createGetImagesForEntityHandler<
+  TDb extends DrizzleDB = DrizzleDB,
+  TSchema extends DrizzleSchema = DrizzleSchema,
+>(options: HandlerOptions<TDb, TSchema>) {
+  const core = new OctoloadCore<TDb, TSchema>(
+    options.config,
+    options.db,
+    options.schema
+  );
+
+  return async (
+    _request: Request,
+    entityType: string,
+    entityId: string,
+    context?: HandlerContext
+  ) => {
+    try {
+      let ownerId: string | undefined;
+
+      // Get user if auth is configured
+      if (options.getUser && context) {
+        const user = await options.getUser(context);
+        ownerId = user?.id;
+      } else if (context?.user) {
+        ownerId = context.user.id;
+      }
+
+      const result = await core.getImagesForEntity(
+        entityType,
+        entityId,
+        ownerId
+      );
+
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return new Response(JSON.stringify({ error: message }), {
+        status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }

@@ -13,10 +13,11 @@ const mockCore = {
   finalize: vi.fn(),
   getImage: vi.fn(),
   deleteImage: vi.fn(),
+  getImagesForEntity: vi.fn(),
 };
 
-// Mock the stub implementation
-vi.mock('../handlers/stub.js', () => ({
+// Mock the core implementation
+vi.mock('../handlers/core.js', () => ({
   OctoloadCore: vi.fn().mockImplementation(() => mockCore),
 }));
 

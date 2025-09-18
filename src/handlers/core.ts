@@ -58,18 +58,20 @@ export type DrizzleSchema =
 /**
  * Core implementation of Octoload functionality.
  * Complete working implementation with R2/S3 storage and database operations.
+ *
+ * @template TDb - Your specific Drizzle database instance type
+ * @template TSchema - Your specific schema type with upload tables
  */
-export class OctoloadCore {
+export class OctoloadCore<
+  TDb extends DrizzleDB = DrizzleDB,
+  TSchema extends DrizzleSchema = DrizzleSchema,
+> {
   private config: OctoloadConfigLike;
-  private db: DrizzleDB;
-  private schema: DrizzleSchema;
+  private db: TDb;
+  private schema: TSchema;
   private storage: S3StorageAdapter;
 
-  constructor(
-    config: OctoloadConfigLike,
-    db: DrizzleDB,
-    schema: DrizzleSchema
-  ) {
+  constructor(config: OctoloadConfigLike, db: TDb, schema: TSchema) {
     this.config = config;
     this.db = db;
     this.schema = schema;
