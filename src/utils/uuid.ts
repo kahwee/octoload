@@ -32,7 +32,18 @@ export function generateUUID(): string {
  * Only use this in server-side code (not in schemas that might be imported by client)
  */
 export function generateServerUUID(): string {
-  // Use require() to avoid browser bundling issues
-  const crypto = require('crypto');
-  return crypto.randomUUID();
+  // Prefer global crypto API if available (Node 18+ and modern browsers)
+  if (
+    typeof globalThis !== 'undefined' &&
+    typeof (globalThis as unknown as { crypto?: { randomUUID?: unknown } })
+      .crypto?.randomUUID === 'function'
+  ) {
+    const g = globalThis as unknown as {
+      crypto?: { randomUUID?: () => string };
+    };
+    return g.crypto!.randomUUID!();
+  }
+
+  // Fallback to the portable generateUUID implementation
+  return generateUUID();
 }

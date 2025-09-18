@@ -10,7 +10,7 @@ class MockXMLHttpRequest {
   setRequestHeader = vi.fn();
   status = 200;
   statusText = 'OK';
-  response: any = null;
+  response: unknown = null;
   responseText = '';
 
   constructor() {

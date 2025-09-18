@@ -10,7 +10,8 @@ import type {
 
 // Use a permissive type for tests and user implementations
 // Specific projects can narrow this when integrating.
-export type DrizzleDB = any;
+// Use a permissive unknown-based type instead of `any` to satisfy lint rules
+export type DrizzleDB = Record<string, unknown> | unknown;
 
 export interface DrizzleSchema {
   [key: string]: unknown;
