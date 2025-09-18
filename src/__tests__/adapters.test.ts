@@ -49,12 +49,16 @@ describe('Framework Adapters', () => {
       update: vi.fn().mockReturnThis(),
       set: vi.fn().mockReturnThis(),
       delete: vi.fn().mockReturnThis(),
+      query: {},
     },
     schema: {
       images: {},
       uploadSessions: {},
       assetVariants: {},
       imageTags: {},
+      imageStatusEnum: {},
+      assetVariantEnum: {},
+      tableNames: {},
     },
     config: {
       adapter: 's3',
