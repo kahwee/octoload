@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type {
   FinalizeRequest,
   ImageRecord,
@@ -13,11 +14,7 @@ export interface OctoloadClientConfig {
 
 export interface UploadOptions
   extends Omit<PresignRequest, 'filename' | 'contentType' | 'byteSize'> {
-  onProgress?: (progress: {
-    loaded: number;
-    total: number;
-    percentage: number;
-  }) => void;
+  onProgress?: (progress: ProgressInfo) => void;
   onStateChange?: (
     state: 'presigning' | 'uploading' | 'finalizing' | 'completed' | 'error'
   ) => void;
@@ -26,6 +23,102 @@ export interface UploadOptions
 export interface UploadResult {
   image: ImageRecord;
   url?: string;
+}
+
+// Custom error types for better error handling
+export class OctoloadError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public statusCode?: number,
+    public details?: unknown
+  ) {
+    super(message);
+    this.name = 'OctoloadError';
+  }
+}
+
+export class ValidationError extends OctoloadError {
+  constructor(message: string, details?: unknown) {
+    super(message, 'VALIDATION_ERROR', 400, details);
+    this.name = 'ValidationError';
+  }
+}
+
+export class NetworkError extends OctoloadError {
+  constructor(message: string, statusCode?: number, details?: unknown) {
+    super(message, 'NETWORK_ERROR', statusCode, details);
+    this.name = 'NetworkError';
+  }
+}
+
+export class UploadError extends OctoloadError {
+  constructor(message: string, details?: unknown) {
+    super(message, 'UPLOAD_ERROR', 500, details);
+    this.name = 'UploadError';
+  }
+}
+
+// Zod schemas for API response validation
+// More permissive schema for backward compatibility with existing tests
+const ImageRecordSchema = z
+  .object({
+    id: z.string(),
+    ownerId: z.string().optional(),
+    orgId: z.string().optional(),
+    entityType: z.string().optional(),
+    entityId: z.string().optional(),
+    filename: z.string().optional(),
+    contentType: z.string().optional(),
+    byteSize: z.number().optional(),
+    status: z.enum(['processing', 'ready', 'failed']).optional(),
+    storageKey: z.string().optional(),
+    publicUrl: z.string().optional(),
+    checksum: z.string().optional(),
+    alt: z.string().optional(),
+    title: z.string().optional(),
+    isPublic: z.boolean().optional(),
+    createdAt: z.coerce.date().optional(),
+    updatedAt: z.coerce.date().optional(),
+  })
+  .passthrough(); // Allow additional fields
+
+const PresignResponseSchema = z.object({
+  storageKey: z.string(),
+  uploadUrl: z.string().optional(),
+  multipart: z
+    .object({
+      uploadId: z.string(),
+      parts: z.array(
+        z.object({
+          partNumber: z.number(),
+          uploadUrl: z.string(),
+        })
+      ),
+    })
+    .optional(),
+  headers: z.record(z.string(), z.string()).optional(),
+  fields: z.record(z.string(), z.string()).optional(),
+  expiresAt: z.coerce.date(),
+});
+
+const GetImageResponseSchema = z.object({
+  image: ImageRecordSchema,
+  url: z.string().optional(),
+});
+
+const ErrorResponseSchema = z.object({
+  error: z.string(),
+  code: z.string().optional(),
+  details: z.unknown().optional(),
+});
+
+interface ProgressInfo {
+  loaded: number;
+  total: number;
+  percentage: number;
+  fileIndex?: number;
+  totalFiles?: number;
 }
 
 export class OctoloadClient {
@@ -57,8 +150,14 @@ export class OctoloadClient {
       onStateChange?.('uploading');
 
       // Step 2: Upload file
+      let completedParts: { partNumber: number; etag: string }[] | undefined;
       if (presignResponse.multipart) {
-        await this.uploadMultipart(file, presignResponse, onProgress);
+        const result = await this.uploadMultipart(
+          file,
+          presignResponse,
+          onProgress
+        );
+        completedParts = result.completedParts;
       } else {
         await this.uploadSingle(file, presignResponse, onProgress);
       }
@@ -69,6 +168,7 @@ export class OctoloadClient {
       const finalizeRequest: FinalizeRequest = {
         storageKey: presignResponse.storageKey,
         checksum: await this.calculateChecksum(file),
+        ...(completedParts && { parts: completedParts }),
       };
 
       const image = await this.finalize(finalizeRequest);
@@ -97,12 +197,11 @@ export class OctoloadClient {
           ...options,
           onProgress: options.onProgress
             ? (progress) => {
-                const extendedProgress = progress as typeof progress & {
-                  fileIndex: number;
-                  totalFiles: number;
+                const extendedProgress: ProgressInfo = {
+                  ...progress,
+                  fileIndex: i + index,
+                  totalFiles: files.length,
                 };
-                extendedProgress.fileIndex = i + index;
-                extendedProgress.totalFiles = files.length;
                 options.onProgress!(extendedProgress);
               }
             : undefined,
@@ -124,11 +223,16 @@ export class OctoloadClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to get image: ${response.statusText}`);
+      throw await this.handleErrorResponse(response, 'Failed to get image');
     }
 
     const result = await response.json();
-    return result as { image: ImageRecord; url: string };
+    try {
+      const parsed = GetImageResponseSchema.parse(result);
+      return parsed as { image: ImageRecord; url: string };
+    } catch (error) {
+      throw new ValidationError('Invalid image response format', error);
+    }
   }
 
   async deleteImage(imageId: string): Promise<void> {
@@ -137,7 +241,7 @@ export class OctoloadClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to delete image: ${response.statusText}`);
+      throw await this.handleErrorResponse(response, 'Failed to delete image');
     }
   }
 
@@ -148,11 +252,15 @@ export class OctoloadClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Presign failed: ${response.statusText}`);
+      throw await this.handleErrorResponse(response, 'Presign failed');
     }
 
     const result = await response.json();
-    return result as PresignResponse;
+    try {
+      return PresignResponseSchema.parse(result) as PresignResponse;
+    } catch (error) {
+      throw new ValidationError('Invalid presign response format', error);
+    }
   }
 
   private async finalize(request: FinalizeRequest): Promise<ImageRecord> {
@@ -162,28 +270,31 @@ export class OctoloadClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Finalize failed: ${response.statusText}`);
+      throw await this.handleErrorResponse(response, 'Finalize failed');
     }
 
     const result = await response.json();
-    return result as ImageRecord;
+    try {
+      const parsed = ImageRecordSchema.parse(result);
+      return parsed as ImageRecord;
+    } catch (error) {
+      throw new ValidationError('Invalid finalize response format', error);
+    }
   }
 
   private async uploadSingle(
     file: File,
     presignResponse: PresignResponse,
-    onProgress?: (progress: {
-      loaded: number;
-      total: number;
-      percentage: number;
-    }) => void
+    onProgress?: (progress: ProgressInfo) => void
   ): Promise<void> {
     if (!presignResponse.uploadUrl) {
-      throw new Error('No upload URL provided');
+      throw new ValidationError('No upload URL provided for single upload');
     }
 
     if (typeof XMLHttpRequest === 'undefined') {
-      throw new Error('XMLHttpRequest not available in this environment');
+      throw new UploadError(
+        'XMLHttpRequest not available in this environment. Use Node.js polyfill for server-side uploads.'
+      );
     }
 
     const xhr = new XMLHttpRequest();
@@ -203,16 +314,22 @@ export class OctoloadClient {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve();
         } else {
-          reject(new Error(`Upload failed: ${xhr.statusText}`));
+          reject(
+            new UploadError(`Single upload failed: ${xhr.statusText}`, {
+              status: xhr.status,
+            })
+          );
         }
       });
 
       xhr.addEventListener('error', () => {
-        reject(new Error('Upload failed'));
+        reject(new NetworkError('Network error during upload'));
       });
 
       if (!presignResponse.uploadUrl) {
-        reject(new Error('No upload URL provided'));
+        reject(
+          new ValidationError('No upload URL provided in presign response')
+        );
         return;
       }
 
@@ -234,14 +351,10 @@ export class OctoloadClient {
   private async uploadMultipart(
     file: File,
     presignResponse: PresignResponse,
-    onProgress?: (progress: {
-      loaded: number;
-      total: number;
-      percentage: number;
-    }) => void
-  ): Promise<void> {
+    onProgress?: (progress: ProgressInfo) => void
+  ): Promise<{ completedParts: { partNumber: number; etag: string }[] }> {
     if (!presignResponse.multipart) {
-      throw new Error('No multipart upload configuration provided');
+      throw new ValidationError('No multipart upload configuration provided');
     }
 
     const { parts } = presignResponse.multipart;
@@ -261,12 +374,18 @@ export class OctoloadClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Part ${part.partNumber} upload failed`);
+        throw new UploadError(`Part ${part.partNumber} upload failed`, {
+          partNumber: part.partNumber,
+          status: response.status,
+          statusText: response.statusText,
+        });
       }
 
       const etag = response.headers.get('ETag');
       if (!etag) {
-        throw new Error(`No ETag returned for part ${part.partNumber}`);
+        throw new UploadError(`No ETag returned for part ${part.partNumber}`, {
+          partNumber: part.partNumber,
+        });
       }
 
       completedParts.push({
@@ -285,12 +404,8 @@ export class OctoloadClient {
       }
     }
 
-    // Store completed parts for finalize step
-    (
-      presignResponse as PresignResponse & {
-        completedParts: typeof completedParts;
-      }
-    ).completedParts = completedParts;
+    // Return completed parts for finalize step instead of mutating response
+    return { completedParts };
   }
 
   private async calculateChecksum(file: File): Promise<string> {
@@ -298,6 +413,40 @@ export class OctoloadClient {
     const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  private async handleErrorResponse(
+    response: Response,
+    defaultMessage: string
+  ): Promise<never> {
+    let errorData: unknown;
+    try {
+      errorData = await response.json();
+    } catch {
+      // Response doesn't contain JSON
+      throw new NetworkError(
+        `${defaultMessage}: ${response.statusText}`,
+        response.status
+      );
+    }
+
+    // Try to parse structured error response
+    try {
+      const parsed = ErrorResponseSchema.parse(errorData);
+      throw new OctoloadError(
+        parsed.error,
+        parsed.code || 'UNKNOWN_ERROR',
+        response.status,
+        parsed.details
+      );
+    } catch {
+      // Fallback to generic error
+      throw new NetworkError(
+        `${defaultMessage}: ${response.statusText}`,
+        response.status,
+        errorData
+      );
+    }
   }
 
   private async fetch(path: string, init: RequestInit = {}): Promise<Response> {
@@ -312,10 +461,17 @@ export class OctoloadClient {
       headers['Authorization'] = `Bearer ${this.config.apiKey}`;
     }
 
-    return fetch(url, {
-      ...init,
-      headers,
-    });
+    try {
+      return await fetch(url, {
+        ...init,
+        headers,
+      });
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new NetworkError('Network request failed', undefined, error);
+      }
+      throw error;
+    }
   }
 }
 
