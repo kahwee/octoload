@@ -15,7 +15,7 @@ React Router v7 framework mode provides file-based routing with server-side rend
 npx create-react-router@latest my-app --template=typescript
 
 cd my-app
-npm install octoload drizzle-orm @paralleldrive/cuid2
+npm install octoload drizzle-orm
 ```
 
 ### 2. Initialize Octoload
@@ -120,9 +120,9 @@ export async function action({ request }: ActionFunctionArgs) {
 ```typescript
 // app/routes/api.images.$imageId.ts
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router';
-import { 
-  createGetImageHandler, 
-  createDeleteImageHandler 
+import {
+  createGetImageHandler,
+  createDeleteImageHandler
 } from 'octoload/react-router';
 import { octoloadConfig } from '~/lib/octoload/config';
 import { db } from '~/db';
@@ -155,7 +155,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   if (request.method === 'DELETE') {
     return deleteHandler({ request, params });
   }
-  
+
   return new Response('Method not allowed', { status: 405 });
 }
 ```
@@ -260,7 +260,7 @@ export function ImageUploader({ onUpload, multiple = false }: ImageUploaderProps
           <p className="text-sm text-gray-600">
             {files.length} file{files.length !== 1 ? 's' : ''} selected
           </p>
-          
+
           <button
             onClick={handleUpload}
             disabled={uploading}
@@ -275,7 +275,7 @@ export function ImageUploader({ onUpload, multiple = false }: ImageUploaderProps
       {uploading && (
         <div className="space-y-2">
           <p className="text-sm text-gray-600">State: {uploadState}</p>
-          
+
           {Object.entries(progress).map(([fileIndex, percentage]) => (
             <div key={fileIndex} className="space-y-1">
               <div className="flex justify-between text-sm">
@@ -283,7 +283,7 @@ export function ImageUploader({ onUpload, multiple = false }: ImageUploaderProps
                 <span>{percentage}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
+                <div
                   className="bg-blue-600 h-2 rounded-full transition-all"
                   style={{ width: `${percentage}%` }}
                 />
@@ -334,12 +334,12 @@ export function DragDropUploader() {
         maxSize: 10 * 1024 * 1024, // 10MB
         allowedTypes: ['image/*'],
       });
-      
+
       if (error) {
         console.warn(`Skipping ${file.name}: ${error}`);
         return false;
       }
-      
+
       return true;
     });
 
@@ -388,8 +388,8 @@ export function DragDropUploader() {
         className={`
           border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
           transition-colors duration-200
-          ${isDragging 
-            ? 'border-blue-500 bg-blue-50' 
+          ${isDragging
+            ? 'border-blue-500 bg-blue-50'
             : 'border-gray-300 hover:border-gray-400'
           }
         `}
@@ -434,7 +434,7 @@ export function DragDropUploader() {
           <h4 className="font-medium text-gray-900">
             Selected Files ({files.length})
           </h4>
-          
+
           <div className="space-y-2 max-h-40 overflow-y-auto">
             {files.map((file, index) => (
               <div
@@ -540,7 +540,7 @@ import { requireAuth } from '~/lib/auth.server';
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireAuth(request);
   const images = await getUserImages(user.id);
-  
+
   return { images };
 }
 
@@ -581,11 +581,11 @@ import { auth } from '~/lib/auth';
 
 export async function requireAuth(request: Request) {
   const session = await auth.api.getSession({ headers: request.headers });
-  
+
   if (!session?.user) {
     throw redirect('/login');
   }
-  
+
   return session.user;
 }
 
@@ -636,7 +636,7 @@ export const octoloadConfig: OctoloadConfig = {
     maxFileSize: 10 * 1024 * 1024, // 10MB
     allowedTypes: [
       'image/jpeg',
-      'image/png', 
+      'image/png',
       'image/webp',
       'image/gif'
     ],
@@ -648,16 +648,16 @@ export const octoloadConfig: OctoloadConfig = {
       if (!context.ownerId) {
         throw new Error('Authentication required');
       }
-      
+
       // Custom filename with timestamp
       const timestamp = Date.now();
       context.filename = `${timestamp}-${context.filename}`;
-      
+
       return context;
     },
     afterFinalize: async (image) => {
       console.log(`Image uploaded: ${image.id} by user ${image.ownerId}`);
-      
+
       // Trigger any post-processing
       // await imageProcessor.generateThumbnails(image.id);
     },
@@ -680,7 +680,7 @@ export function ErrorBoundary() {
     if (error.status === 413) {
       return <div>File too large. Please choose a smaller file.</div>;
     }
-    
+
     if (error.status === 415) {
       return <div>File type not supported. Please choose an image file.</div>;
     }
