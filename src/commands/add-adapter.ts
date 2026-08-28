@@ -65,7 +65,7 @@ function updateConfig(cwd: string, adapter: string) {
   const configPath = join(cwd, 'src/lib/octoload/config.ts');
   if (!existsSync(configPath)) {
     console.log(
-      '⚠️  Octoload config not found. Run "npx octoload init" first.'
+      '⚠️  Octoload config not found. Run "pnpm dlx octoload init" first.'
     );
     return;
   }

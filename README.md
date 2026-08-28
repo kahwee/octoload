@@ -28,13 +28,13 @@ Octoload provides **direct-to-storage uploads** using presigned URLs, eliminatin
 ### Installation
 
 ```bash
-npm install octoload drizzle-orm
+pnpm add octoload drizzle-orm
 ```
 
 ### Initialize Project
 
 ```bash
-npx octoload init --adapter=s3 --framework=react-router
+pnpm dlx octoload init --adapter=s3 --framework=react-router
 ```
 
 This generates:
@@ -188,22 +188,22 @@ CREATE TABLE image_tags (
 
 ```bash
 # Initialize new project
-npx octoload init [options]
+pnpm dlx octoload init [options]
   --adapter <s3|r2>           Storage adapter (default: s3)
   --framework <react-router|nextjs>  Framework integration
   --database <postgres|mysql|sqlite>  Database type
 
 # Generate/update database schema
-npx octoload generate
+pnpm dlx octoload generate
 
 # Run database migrations
-npx octoload migrate
+pnpm dlx octoload migrate
 
 # Add new storage adapter
-npx octoload add adapter <name>
+pnpm dlx octoload add adapter <name>
 
 # Add framework integration  
-npx octoload add framework <name>
+pnpm dlx octoload add framework <name>
 ```
 
 ---
@@ -316,7 +316,7 @@ We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guideline
 ```bash
 git clone https://github.com/kahwee/octoload.git
 cd octoload
-npm install
+pnpm install
 # or
 pnpm install
 ```
@@ -324,9 +324,9 @@ pnpm install
 ### Running Tests
 
 ```bash
-npm test           # Run test suite
-npm run typecheck  # Type checking
-npm run fix        # Format code
+pnpm test           # Run test suite
+pnpm run typecheck  # Type checking
+pnpm run fix        # Format code
 # or with pnpm
 pnpm test
 pnpm typecheck

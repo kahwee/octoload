@@ -6,12 +6,12 @@ This example shows how to integrate Octoload with a React Router v7 application.
 
 1. **Install dependencies**
    ```bash
-   npm install octoload drizzle-orm drizzle-kit @aws-sdk/client-s3
+   pnpm add octoload drizzle-orm drizzle-kit @aws-sdk/client-s3
    ```
 
 2. **Initialize Octoload**
    ```bash
-   npx octoload init --adapter s3 --framework react-router
+   pnpm dlx octoload init --adapter s3 --framework react-router
    ```
 
 3. **Update environment**
@@ -26,8 +26,8 @@ This example shows how to integrate Octoload with a React Router v7 application.
 
 4. **Generate schemas and migrate**
    ```bash
-   npx octoload generate
-   npx octoload migrate
+   pnpm dlx octoload generate
+   pnpm dlx octoload migrate
    ```
 
 ## Configuration

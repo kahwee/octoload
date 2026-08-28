@@ -32,7 +32,7 @@
     }
   },
   "scripts": {
-    "build": "npm run build:clean && npm run build:generate-templates && npm run build:compile",
+    "build": "pnpm run build:clean && pnpm run build:generate-templates && pnpm run build:compile",
     "build:clean": "rm -rf dist",
     "build:generate-templates": "node scripts/generate-template.js",
     "build:compile": "tsc",
@@ -43,12 +43,12 @@
     "coverage": "vitest run --coverage",
     "format": "prettier --write . --log-level warn",
     "format:check": "prettier --check .",
-    "fix": "npm run lint:fix && npm run format",
+    "fix": "pnpm run lint:fix && pnpm run format",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc",
-    "update-all-package": "npx npm-check-updates -u && npm install",
-    "prepublishOnly": "npm run typecheck && npm run lint && npm run build"
+    "update-all-package": "pnpm dlx npm-check-updates -u && pnpm install",
+    "prepublishOnly": "pnpm run typecheck && pnpm run lint && pnpm run build"
   },
   "keywords": [
     "image",
@@ -80,7 +80,13 @@
   "engines": {
     "node": ">=22.0.0"
   },
-  "packageManager": "npm@11.6.2",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.24.0",
+      "onFail": "error"
+    }
+  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.927.0",
     "@aws-sdk/s3-request-presigner": "^3.927.0",

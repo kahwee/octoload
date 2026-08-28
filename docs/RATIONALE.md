@@ -68,10 +68,10 @@ Server (metadata only)
 
 **Octoload CLI:**
 ```bash
-npx octoload init --adapter=s3 --framework=react-router
-npx octoload generate    # Generate Drizzle schema
-npx octoload migrate     # Run database migrations
-npx octoload add adapter # Add new storage adapters
+pnpm dlx octoload init --adapter=s3 --framework=react-router
+pnpm dlx octoload generate    # Generate Drizzle schema
+pnpm dlx octoload migrate     # Run database migrations
+pnpm dlx octoload add adapter # Add new storage adapters
 ```
 
 **Why CLI-first?**

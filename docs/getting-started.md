@@ -5,7 +5,7 @@ This guide will help you set up Octoload in your project for direct-to-storage i
 ## Installation
 
 ```bash
-npm install octoload
+pnpm add octoload
 # or
 yarn add octoload
 # or
@@ -19,9 +19,9 @@ pnpm add octoload
 Run the init command to scaffold configuration and routes:
 
 ```bash
-npx octoload init --adapter s3 --framework nextjs
+pnpm dlx octoload init --adapter s3 --framework nextjs
 # or for React Router
-npx octoload init --adapter r2 --framework react-router
+pnpm dlx octoload init --adapter r2 --framework react-router
 ```
 
 This creates:
@@ -50,7 +50,7 @@ DATABASE_URL=postgresql://...
 Generate the Drizzle schemas for image uploads:
 
 ```bash
-npx octoload generate
+pnpm dlx octoload generate
 ```
 
 This creates `src/db/upload-schema.ts` with tables for:
@@ -64,7 +64,7 @@ This creates `src/db/upload-schema.ts` with tables for:
 Apply the database migrations:
 
 ```bash
-npx octoload migrate
+pnpm dlx octoload migrate
 ```
 
 ## Basic Usage

@@ -65,8 +65,8 @@ export default defineConfig({
   console.log('\\n🎉 Octoload initialized successfully!');
   console.log('\\nNext steps:');
   console.log('1. Copy environment variables from .env.example to .env');
-  console.log('2. Run: npx octoload generate');
-  console.log('3. Run: npx octoload migrate');
+  console.log('2. Run: pnpm dlx octoload generate');
+  console.log('3. Run: pnpm dlx octoload migrate');
 }
 
 function generateConfig(options: InitOptions): string {

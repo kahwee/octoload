@@ -12,7 +12,7 @@ export async function migrateCommand(options: MigrateOptions) {
 
   if (!existsSync(drizzleConfigPath)) {
     console.error(
-      '❌ drizzle.config.ts not found. Run "npx octoload init" first.'
+      '❌ drizzle.config.ts not found. Run "pnpm dlx octoload init" first.'
     );
     process.exit(1);
   }
@@ -41,9 +41,8 @@ export async function migrateCommand(options: MigrateOptions) {
 
 function runDrizzleCommand(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    const drizzleKit = spawn('npx', ['drizzle-kit', ...args], {
+    const drizzleKit = spawn('pnpm', ['exec', 'drizzle-kit', ...args], {
       stdio: 'inherit',
-      shell: true,
     });
 
     drizzleKit.on('close', (code) => {

@@ -12,17 +12,17 @@ React Router v7 framework mode provides file-based routing with server-side rend
 
 ```bash
 # Create new React Router v7 project
-npx create-react-router@latest my-app --template=typescript
+pnpm dlx create-react-router@latest my-app --template=typescript
 
 cd my-app
-npm install octoload drizzle-orm
+pnpm add octoload drizzle-orm
 ```
 
 ### 2. Initialize Octoload
 
 ```bash
 # Initialize with React Router adapter
-npx octoload init --adapter s3 --framework react-router
+pnpm dlx octoload init --adapter s3 --framework react-router
 ```
 
 This creates:
@@ -54,11 +54,11 @@ S3_SECRET_ACCESS_KEY=...
 
 ```bash
 # Generate upload schema
-npx octoload generate --output app/db/upload-schema.ts
+pnpm dlx octoload generate --output app/db/upload-schema.ts
 
 # Generate and apply migrations
-npm run db:generate
-npm run db:migrate
+pnpm run db:generate
+pnpm run db:migrate
 ```
 
 ## Server-Side Integration
@@ -768,7 +768,7 @@ S3_SECRET_ACCESS_KEY=...
 {
   "scripts": {
     "build": "react-router build",
-    "postbuild": "npx octoload migrate --generate-only",
+    "postbuild": "pnpm dlx octoload migrate --generate-only",
     "start": "react-router-serve ./build/server/index.js"
   }
 }

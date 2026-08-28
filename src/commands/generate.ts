@@ -19,5 +19,5 @@ export async function generateCommand(options: GenerateOptions) {
   writeFileSync(outputPath, schemaContent);
 
   console.log(`✅ Generated schema at: ${options.output}`);
-  console.log('\\nNext step: Run npx octoload migrate to generate migrations');
+  console.log('\\nNext step: Run pnpm dlx octoload migrate to generate migrations');
 }

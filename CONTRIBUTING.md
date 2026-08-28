@@ -12,14 +12,14 @@ Thank you for your interest in contributing to Octoload! We welcome contribution
 
 2. **Install dependencies:**
    ```bash
-   npm install
+   pnpm install
    # or
    pnpm install
    ```
 
 3. **Run development mode:**
    ```bash
-   npm run dev  # Watch mode for development
+   pnpm run dev  # Watch mode for development
    # or
    pnpm dev
    ```
@@ -28,19 +28,19 @@ Thank you for your interest in contributing to Octoload! We welcome contribution
 
 ```bash
 # Build the project
-npm run build
+pnpm run build
 
 # Run tests
-npm test
+pnpm test
 
 # Type checking
-npm run typecheck
+pnpm run typecheck
 
 # Format code
-npm run fix
+pnpm run fix
 
 # Full verification (before submitting PR)
-npm run typecheck && npm run fix && npm test && npm run build
+pnpm run typecheck && pnpm run fix && pnpm test && pnpm run build
 ```
 
 ## Contribution Guidelines
