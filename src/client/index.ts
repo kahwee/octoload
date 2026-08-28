@@ -12,8 +12,10 @@ export interface OctoloadClientConfig {
   headers?: Record<string, string>;
 }
 
-export interface UploadOptions
-  extends Omit<PresignRequest, 'filename' | 'contentType' | 'byteSize'> {
+export interface UploadOptions extends Omit<
+  PresignRequest,
+  'filename' | 'contentType' | 'byteSize'
+> {
   onProgress?: (progress: ProgressInfo) => void;
   onStateChange?: (
     state: 'presigning' | 'uploading' | 'finalizing' | 'completed' | 'error'

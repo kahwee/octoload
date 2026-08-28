@@ -119,12 +119,7 @@ export type NewImageTag = InferInsertModel<typeof imageTags>;
 
 // Entity type helpers for better type safety
 export type EntityType =
-  | 'appliance'
-  | 'recipe'
-  | 'user'
-  | 'ingredient'
-  | 'equipment'
-  | string;
+  'appliance' | 'recipe' | 'user' | 'ingredient' | 'equipment' | string;
 
 // Utility types for common operations
 export type ImageWithVariants = Image & {

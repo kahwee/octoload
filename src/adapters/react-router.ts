@@ -16,8 +16,10 @@ type LoaderFunctionArgs = {
   request: Request;
   params?: Record<string, string | undefined>;
 };
-export interface ReactRouterHandlerOptions
-  extends Omit<HandlerOptions, 'getUser'> {
+export interface ReactRouterHandlerOptions extends Omit<
+  HandlerOptions,
+  'getUser'
+> {
   getUser?: (
     args: ActionFunctionArgs | LoaderFunctionArgs
   ) => Promise<{ id: string } | null>;

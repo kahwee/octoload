@@ -18,7 +18,9 @@ const mockCore = {
 
 // Mock the core implementation
 vi.mock('../handlers/core.js', () => ({
-  OctoloadCore: vi.fn().mockImplementation(() => mockCore),
+  OctoloadCore: vi.fn(function OctoloadCoreMock() {
+    return mockCore;
+  }),
 }));
 
 // Mock storage adapter

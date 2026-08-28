@@ -3,12 +3,14 @@ import { S3StorageAdapter } from '../storage/s3-adapter.js';
 
 // Mock the AWS SDK for R2 testing
 vi.mock('@aws-sdk/client-s3', () => ({
-  S3Client: vi.fn().mockImplementation(() => ({
-    send: vi.fn(),
-    config: {
-      region: 'auto',
-    },
-  })),
+  S3Client: vi.fn(function S3ClientMock() {
+    return {
+      send: vi.fn(),
+      config: {
+        region: 'auto',
+      },
+    };
+  }),
   PutObjectCommand: vi.fn(),
   GetObjectCommand: vi.fn(),
   HeadObjectCommand: vi.fn(),
