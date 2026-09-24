@@ -370,12 +370,12 @@ export class OctoloadCore<
    * Helper methods for Drizzle operations
    */
   private eq(column: unknown, value: unknown) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: Drizzle's overloaded helper needs the runtime column type.
     return eq(column as any, value);
   }
 
   private and(...conditions: unknown[]) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: Drizzle's overloaded helper needs the runtime conditions.
     return and(...(conditions as any[]));
   }
 
@@ -383,7 +383,7 @@ export class OctoloadCore<
    * Get schema table with type assertion
    */
   private getImagesTable() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: The schema is supplied dynamically at runtime.
     return (this.schema as any).images;
   }
 

@@ -48,8 +48,8 @@ pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm test && pnp
 ### Code Style
 
 - **TypeScript strict mode** - No `any` types allowed
-- **Prettier formatting** - Use `pnpm run format` to format
-- **ESLint rules** - Follow existing patterns
+- **Biome formatting** - Use `pnpm run format` to format
+- **Biome lint rules** - Follow existing patterns
 - **Test coverage** - Add behavior tests for new functionality and regressions. Run `pnpm run test:coverage` to find untested paths.
 
 ### Pull Request Process

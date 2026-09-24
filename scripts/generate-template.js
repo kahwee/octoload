@@ -50,5 +50,4 @@ if (!fs.existsSync(templatesDir)) {
 // Write the generated module
 fs.writeFileSync(outputPath, moduleContent);
 
-// eslint-disable-next-line no-undef
 console.log('✅ Generated template module at src/templates/schema-template.ts');

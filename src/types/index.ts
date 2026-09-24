@@ -132,7 +132,13 @@ export interface VariantRecord {
   id: string;
   imageId: string;
   variant:
-    'original' | 'thumb' | 'webp' | 'avif' | 'small' | 'medium' | 'large';
+    | 'original'
+    | 'thumb'
+    | 'webp'
+    | 'avif'
+    | 'small'
+    | 'medium'
+    | 'large';
   width?: number;
   height?: number;
   byteSize: number;

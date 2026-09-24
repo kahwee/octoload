@@ -41,11 +41,11 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "coverage": "vitest run --coverage",
-    "format": "prettier --write . --log-level warn",
-    "format:check": "prettier --check .",
-    "fix": "pnpm run lint:fix && pnpm run format",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "fix": "biome check --write .",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
     "typecheck": "tsc",
     "update-all-package": "pnpm dlx npm-check-updates -u && pnpm install",
     "prepublishOnly": "pnpm run typecheck && pnpm run lint && pnpm run build"
@@ -95,20 +95,14 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
+    "@biomejs/biome": "^2.5.14",
     "@types/node": "^26.4.0",
     "@types/react": "^19.2.18",
     "@vitest/coverage-v8": "^4.1.11",
     "drizzle-kit": "^0.31.10",
-    "eslint": "^10.9.1",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.6",
-    "globals": "^17.11.0",
     "next": "^16.3.3",
-    "prettier": "^3.9.6",
     "react-router": "^8.3.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.68.0",
     "vitest": "^4.1.11"
   },
   "peerDependencies": {
