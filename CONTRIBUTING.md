@@ -13,15 +13,11 @@ Thank you for your interest in contributing to Octoload! We welcome contribution
 2. **Install dependencies:**
    ```bash
    pnpm install
-   # or
-   pnpm install
    ```
 
 3. **Run development mode:**
    ```bash
    pnpm run dev  # Watch mode for development
-   # or
-   pnpm dev
    ```
 
 ## Development Commands
@@ -36,11 +32,15 @@ pnpm test
 # Type checking
 pnpm run typecheck
 
-# Format code
-pnpm run fix
+# Lint and formatting checks
+pnpm run lint
+pnpm run format:check
+
+# Coverage report
+pnpm run test:coverage
 
 # Full verification (before submitting PR)
-pnpm run typecheck && pnpm run fix && pnpm test && pnpm run build
+pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm test && pnpm run build
 ```
 
 ## Contribution Guidelines
@@ -48,9 +48,9 @@ pnpm run typecheck && pnpm run fix && pnpm test && pnpm run build
 ### Code Style
 
 - **TypeScript strict mode** - No `any` types allowed
-- **Prettier formatting** - Use `bun run fix` to format
+- **Prettier formatting** - Use `pnpm run format` to format
 - **ESLint rules** - Follow existing patterns
-- **Test coverage** - Add tests for new functionality
+- **Test coverage** - Add behavior tests for new functionality and regressions. Run `pnpm run test:coverage` to find untested paths.
 
 ### Pull Request Process
 

@@ -432,23 +432,24 @@ export class OctoloadClient {
       );
     }
 
-    // Try to parse structured error response
+    // Parse the response separately so the error below is not caught here.
+    let parsed: z.infer<typeof ErrorResponseSchema>;
     try {
-      const parsed = ErrorResponseSchema.parse(errorData);
-      throw new OctoloadError(
-        parsed.error,
-        parsed.code || 'UNKNOWN_ERROR',
-        response.status,
-        parsed.details
-      );
+      parsed = ErrorResponseSchema.parse(errorData);
     } catch {
-      // Fallback to generic error
       throw new NetworkError(
         `${defaultMessage}: ${response.statusText}`,
         response.status,
         errorData
       );
     }
+
+    throw new OctoloadError(
+      parsed.error,
+      parsed.code || 'UNKNOWN_ERROR',
+      response.status,
+      parsed.details
+    );
   }
 
   private async fetch(path: string, init: RequestInit = {}): Promise<Response> {

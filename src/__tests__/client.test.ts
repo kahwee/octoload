@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { OctoloadClient, validateFile } from '../client/index.js';
+import {
+  OctoloadClient,
+  OctoloadError,
+  validateFile,
+} from '../client/index.js';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -202,6 +206,27 @@ describe('OctoloadClient', () => {
       await expect(client.deleteImage('img-123')).rejects.toThrow(
         'Failed to delete image: Not Found'
       );
+    });
+
+    it('preserves structured API error details', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        json: async () => ({
+          error: 'Image belongs to another user',
+          code: 'ACCESS_DENIED',
+          details: { imageId: 'img-123' },
+        }),
+      });
+
+      await expect(client.deleteImage('img-123')).rejects.toMatchObject({
+        name: 'OctoloadError',
+        message: 'Image belongs to another user',
+        code: 'ACCESS_DENIED',
+        statusCode: 403,
+        details: { imageId: 'img-123' },
+      } satisfies Partial<OctoloadError>);
     });
   });
 });

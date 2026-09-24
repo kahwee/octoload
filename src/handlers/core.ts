@@ -98,9 +98,11 @@ export class OctoloadCore<
    * Generate presigned URL for file upload with hash-based storage key
    */
   async presign(request: PresignRequest): Promise<PresignResponse> {
-    // Generate hash-based storage key (from homecrafted implementation)
+    // Include the record ID so uploads with identical metadata in the same
+    // millisecond cannot overwrite one another in storage.
+    const imageId = generateServerUUID();
     const fileExtension = request.filename.split('.').pop() || '';
-    const hashInput = `${request.entityId || 'upload'}-${request.ownerId || 'anonymous'}-${request.filename}-${Date.now()}`;
+    const hashInput = `${request.entityId || 'upload'}-${request.ownerId || 'anonymous'}-${request.filename}-${imageId}`;
     const fileHash = createHash('sha256')
       .update(hashInput)
       .digest('hex')
@@ -112,7 +114,7 @@ export class OctoloadCore<
 
     // Create image record in database with 'processing' status
     const imageData: NewImage = {
-      id: generateServerUUID(),
+      id: imageId,
       ownerId: request.ownerId || null,
       orgId: request.orgId || null,
       entityType: request.entityType || null,
