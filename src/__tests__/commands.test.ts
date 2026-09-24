@@ -112,7 +112,12 @@ describe('Commands', () => {
 
       // Check for image table columns
       expect(generatedContent).toContain('id: uuid');
-      expect(generatedContent).toContain('ownerId: uuid');
+      expect(generatedContent).toContain(
+        "ownerId: varchar('owner_id', { length: 255 })"
+      );
+      expect(generatedContent).toContain(
+        "orgId: varchar('org_id', { length: 255 })"
+      );
       expect(generatedContent).toContain('filename: varchar');
       expect(generatedContent).toContain('contentType: varchar');
       expect(generatedContent).toContain('byteSize: integer');

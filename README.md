@@ -1,6 +1,6 @@
 # Octoload
 
-Octoload is a TypeScript toolkit for **browser-to-S3 image uploads** with metadata stored through Drizzle ORM. It also works with Cloudflare R2 through its S3-compatible API. Your application handles the presign and finalize requests; the image bytes go from the browser directly to object storage.
+Octoload is a TypeScript toolkit for **browser-to-S3 and Cloudflare R2 image uploads** with metadata stored through Drizzle ORM. Your application handles the presign and finalize requests; the image bytes go from the browser directly to object storage.
 
 This repository is an early-stage library, not a hosted upload service. It provides a browser client, storage operations, framework handler wrappers, a PostgreSQL Drizzle schema generator, and a CLI. The application supplies its own database connection, authentication, routes, bucket, and CORS policy.
 
@@ -28,6 +28,15 @@ pnpm exec octoload generate --output src/db/upload-schema.ts
 ```
 
 `generate` **overwrites** its output file. Review the generated schema before using it. It defines `images`, `upload_sessions`, `asset_variants`, and `image_tags`; the current upload flow writes only image rows.
+
+The generated `images.owner_id` and `images.org_id` columns are `varchar(255)`, so they accept Better Auth's default string IDs as well as UUID strings. `images.id` and `images.entity_id` remain UUIDs. If an existing installation has UUID owner or organization columns, migrate them before replacing its generated schema:
+
+```sql
+ALTER TABLE images ALTER COLUMN owner_id TYPE varchar(255) USING owner_id::text;
+ALTER TABLE images ALTER COLUMN org_id TYPE varchar(255) USING org_id::text;
+```
+
+Review any foreign keys or indexes on those columns as part of your migration. The upload handler takes `ownerId` from the trusted session, never from the request body. Your application must authorize any `orgId` supplied in a request before treating it as an organization-owned upload.
 
 For Next.js or React Router, `octoload init --framework nextjs` (or `react-router`) creates the config, upload and image routes, and a shared server module. It preserves existing files when rerun. Follow its printed steps to generate the schema, export your Drizzle `db`, and connect the generated `getUploadUser` function to your session provider. Pass `--auth better-auth` if your app already exports a Better Auth instance from `src/lib/auth.ts` (Next.js) or `app/lib/auth.server.ts` (React Router); the generated session function will use it. Generated upload routes return 401 until session lookup returns a user.
 
@@ -68,6 +77,32 @@ The framework exports `octoload/nextjs` and `octoload/react-router` provide wrap
 
 If your app uses Better Auth, implement the generated session function with `auth.api.getSession({ headers: request.headers })` and return `session?.user ? { id: session.user.id } : null`. In a typical Next.js app, import `auth` from `src/lib/auth.ts`; in React Router, use `app/lib/auth.server.ts`. [Better Auth documents this server session API](https://better-auth.com/docs/basic-usage).
 
+### Cloudflare R2 configuration
+
+Use the same handlers and browser client for R2. Set `storage.adapter` to `'r2'`, `storage.region` to `'auto'`, and `storage.endpoint` to `https://<account-id>.r2.cloudflarestorage.com`; use R2 API credentials and your R2 bucket name. Configure the bucket's CORS rules for your application origin and upload headers. Public delivery requires an R2 custom domain or `r2.dev` public bucket URL; the S3-compatible API endpoint is for authenticated API calls and is not a public asset domain.
+
+### Clean up abandoned uploads
+
+Run `cleanupAbandonedUploads()` from a trusted scheduled server job with the same database and storage config as your handlers. It scans old `processing` and `failed` rows, deletes the corresponding object from S3 or R2, then deletes the row. It claims `processing` rows atomically so finalize cannot mark an upload ready after cleanup wins. Failed object or database deletions remain retryable on the next run.
+
+```ts
+import { OctoloadCore } from 'octoload';
+import { config } from './upload-config.js';
+import { db } from './db.js';
+import * as schema from './db/upload-schema.js';
+
+const core = new OctoloadCore(config, db, schema);
+const result = await core.cleanupAbandonedUploads({
+  olderThanMs: 2 * 60 * 60 * 1000,
+  limit: 100,
+});
+if (result.errors.length > 0) {
+  console.error('Upload cleanup errors', result.errors);
+}
+```
+
+The default age is two hours, after the one-hour presigned PUT URL expires. The minimum age is one hour; `limit` defaults to 100 and accepts 1–1000. Schedule repeated runs until the backlog is clear, and monitor `errors`. This cleans up **single PUT** objects and image rows. It does not abort incomplete multipart upload sessions: the active core flow does not create them. If your application uses the adapter's lower-level multipart methods, configure an S3 `AbortIncompleteMultipartUpload` lifecycle rule. R2 automatically aborts incomplete multipart uploads after seven days by default; you can change that with an R2 lifecycle rule.
+
 ## Browser upload
 
 ```ts
@@ -85,7 +120,7 @@ The client uploads one file with a presigned PUT URL, then calls finalize. `uplo
 
 ## Current scope
 
-- The active server flow is **single PUT uploads**. Multipart types and client handling exist, but the core does not currently create multipart upload sessions or complete multipart uploads.
+- The active server flow is **single PUT uploads** on both S3 and R2. The core rejects `strategy: 'multipart'` and finalize requests with `parts`. Multipart types, low-level storage methods, and client handling exist, but no multipart server workflow is wired up.
 - The schema generator emits **PostgreSQL** tables. MySQL and SQLite schemas are not implemented.
 - `octoload init` creates framework routes and a fail-closed auth hook. You still connect your existing Drizzle database and session provider.
 - Variant and tag tables are schema only. Image processing, tag writes, and custom storage adapters are not implemented by the upload flow.

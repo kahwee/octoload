@@ -30,18 +30,18 @@ describe('Zod Schema Validation', () => {
       expect(result.isPublic).toBe(false);
     });
 
-    it('should validate UUID fields', () => {
-      const requestWithUUIDs = {
+    it('accepts string owner and organization IDs', () => {
+      const requestWithIds = {
         filename: 'test.jpg',
         contentType: 'image/jpeg',
         byteSize: 1024,
-        ownerId: '123e4567-e89b-12d3-a456-426614174000',
-        orgId: '987fcdeb-51d2-43a1-9876-543210987654',
+        ownerId: 'user_aB7x2',
+        orgId: 'org_4qR8k',
       };
 
-      const result = presignRequestSchema.parse(requestWithUUIDs);
-      expect(result.ownerId).toBeDefined();
-      expect(result.orgId).toBeDefined();
+      const result = presignRequestSchema.parse(requestWithIds);
+      expect(result.ownerId).toBe('user_aB7x2');
+      expect(result.orgId).toBe('org_4qR8k');
     });
 
     it('should reject invalid content types', () => {

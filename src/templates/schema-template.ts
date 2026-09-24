@@ -46,8 +46,8 @@ export const images = pgTable('images', {
   id: uuid('id')
     .primaryKey()
     .$defaultFn(() => randomUUID()),
-  ownerId: uuid('owner_id'), // nullable for public uploads
-  orgId: uuid('org_id'), // nullable for personal uploads
+  ownerId: varchar('owner_id', { length: 255 }), // Better Auth and other string IDs
+  orgId: varchar('org_id', { length: 255 }), // nullable for personal uploads
   entityType: varchar('entity_type', { length: 50 }), // e.g., 'appliance', 'recipe', 'user'
   entityId: uuid('entity_id'), // UUID of the associated entity
   filename: varchar('filename', { length: 255 }).notNull(),

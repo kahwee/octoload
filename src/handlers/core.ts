@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 // Import proper Drizzle types and functions
-import { and, eq } from 'drizzle-orm';
+import { and, eq, lt, or } from 'drizzle-orm';
 import type { PgDatabase } from 'drizzle-orm/pg-core';
 import { S3StorageAdapter } from '../storage/s3-adapter.js';
 // Import the actual schema types from our template
@@ -75,6 +75,11 @@ export class OctoloadCore<
    * Generate presigned URL for file upload with hash-based storage key
    */
   async presign(request: PresignRequest): Promise<PresignResponse> {
+    if (request.strategy === 'multipart') {
+      throw new Error(
+        'Multipart uploads are not supported by the core upload flow'
+      );
+    }
     if (!request.ownerId && !request.isPublic) {
       throw new Error('Authentication required');
     }
@@ -142,6 +147,11 @@ export class OctoloadCore<
     request: FinalizeRequest,
     userId?: string
   ): Promise<ImageRecord> {
+    if (request.parts !== undefined) {
+      throw new Error(
+        'Multipart uploads are not supported by the core upload flow'
+      );
+    }
     // Find image by storage key
     const cols = this.getImageColumns();
     const results = await this.db
@@ -161,6 +171,9 @@ export class OctoloadCore<
     if (image.ownerId && image.ownerId !== userId) {
       throw new Error('Access denied');
     }
+    if (image.status !== 'processing') {
+      throw new Error('Upload is no longer processing');
+    }
 
     // Verify upload exists in storage
     const exists = await this.storage.objectExists(request.storageKey);
@@ -177,11 +190,96 @@ export class OctoloadCore<
         publicUrl: this.getPublicUrl(request.storageKey),
         updatedAt: new Date(),
       })
-      .where(this.eq(cols.id, image.id))
+      .where(
+        this.and(this.eq(cols.id, image.id), this.eq(cols.status, 'processing'))
+      )
       .returning();
     const updatedImage = updatedResults[0] as ImageRecord;
 
+    if (!updatedImage) {
+      throw new Error('Upload is no longer processing');
+    }
+
     return updatedImage;
+  }
+
+  /** Remove expired single-PUT uploads from S3 or R2 and their database rows. */
+  async cleanupAbandonedUploads(
+    options: { olderThanMs?: number; limit?: number } = {}
+  ): Promise<{
+    scanned: number;
+    cleaned: number;
+    skipped: number;
+    errors: { imageId: string; message: string }[];
+  }> {
+    const olderThanMs = options.olderThanMs ?? 2 * 60 * 60 * 1000;
+    const limit = options.limit ?? 100;
+    if (!Number.isFinite(olderThanMs) || olderThanMs < 60 * 60 * 1000) {
+      throw new Error('olderThanMs must be at least one hour');
+    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1000) {
+      throw new Error('limit must be an integer between 1 and 1000');
+    }
+
+    const cols = this.getImageColumns();
+    const cutoff = new Date(Date.now() - olderThanMs);
+    const candidates = (await this.db
+      .select()
+      .from(this.getImagesTable())
+      .where(
+        this.and(
+          lt(cols.createdAt, cutoff),
+          or(this.eq(cols.status, 'processing'), this.eq(cols.status, 'failed'))
+        )
+      )
+      .orderBy(cols.createdAt)
+      .limit(limit)) as ImageRecord[];
+
+    const result = {
+      scanned: candidates.length,
+      cleaned: 0,
+      skipped: 0,
+      errors: [] as { imageId: string; message: string }[],
+    };
+
+    for (const image of candidates) {
+      try {
+        if (image.status === 'processing') {
+          // Finalize and cleanup race on this status. Only one may claim it.
+          const claimed = await this.db
+            .update(this.getImagesTable())
+            .set({ status: 'failed', updatedAt: new Date() })
+            .where(
+              this.and(
+                this.eq(cols.id, image.id),
+                this.eq(cols.status, 'processing'),
+                lt(cols.createdAt, cutoff)
+              )
+            )
+            .returning();
+          if (claimed.length === 0) {
+            result.skipped++;
+            continue;
+          }
+        }
+
+        // DeleteObject is safe to retry if the object was never uploaded.
+        await this.storage.deleteObject(image.storageKey);
+        await this.db
+          .delete(this.getImagesTable())
+          .where(
+            this.and(this.eq(cols.id, image.id), this.eq(cols.status, 'failed'))
+          );
+        result.cleaned++;
+      } catch (error) {
+        result.errors.push({
+          imageId: image.id,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return result;
   }
 
   /**
