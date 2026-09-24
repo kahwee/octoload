@@ -6,7 +6,10 @@ import type { ImageRecord } from '../types/index.js';
 
 const storage = vi.hoisted(() => ({
   deleteObject: vi.fn(async () => undefined),
-  objectExists: vi.fn(async () => true),
+  headObject: vi.fn(async () => ({
+    ContentLength: 10,
+    ContentType: 'image/jpeg',
+  })),
 }));
 
 vi.mock('../storage/s3-adapter.js', () => ({
@@ -137,7 +140,7 @@ describe.each(['s3', 'r2'] as const)(
       await expect(
         core.finalize({ storageKey: row.storageKey }, row.ownerId)
       ).rejects.toThrow('Upload is no longer processing');
-      expect(storage.objectExists).not.toHaveBeenCalled();
+      expect(storage.headObject).not.toHaveBeenCalled();
     });
 
     it('rejects finalization if cleanup wins after object verification', async () => {
@@ -146,7 +149,7 @@ describe.each(['s3', 'r2'] as const)(
       await expect(
         core.finalize({ storageKey: row.storageKey }, row.ownerId)
       ).rejects.toThrow('Upload is no longer processing');
-      expect(storage.objectExists).toHaveBeenCalledWith(row.storageKey);
+      expect(storage.headObject).toHaveBeenCalledWith(row.storageKey);
     });
 
     it('does not store a public URL for a private image', async () => {
@@ -158,6 +161,41 @@ describe.each(['s3', 'r2'] as const)(
       );
       expect(finalized.status).toBe('ready');
       expect(finalized.publicUrl).toBeNull();
+    });
+
+    it('rejects an object whose stored size or content type differs', async () => {
+      const row = image();
+      const { core, rows } = makeCore(provider, row);
+      storage.headObject.mockResolvedValueOnce({
+        ContentLength: 11,
+        ContentType: 'image/jpeg',
+      });
+      await expect(
+        core.finalize({ storageKey: row.storageKey }, row.ownerId)
+      ).rejects.toThrow('file size does not match');
+      storage.headObject.mockResolvedValueOnce({
+        ContentLength: 10,
+        ContentType: 'image/png',
+      });
+      await expect(
+        core.finalize({ storageKey: row.storageKey }, row.ownerId)
+      ).rejects.toThrow('content type does not match');
+      expect(rows[0]?.status).toBe('processing');
+    });
+
+    it('reports a missing object without marking the row ready', async () => {
+      const row = image();
+      const { core, rows } = makeCore(provider, row);
+      storage.headObject.mockRejectedValueOnce(
+        Object.assign(new Error('Not Found'), {
+          name: 'NotFound',
+          $metadata: { httpStatusCode: 404 },
+        })
+      );
+      await expect(
+        core.finalize({ storageKey: row.storageKey }, row.ownerId)
+      ).rejects.toThrow('file not found in storage');
+      expect(rows[0]?.status).toBe('processing');
     });
   }
 );

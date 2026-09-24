@@ -9,7 +9,7 @@ This repository is an early-stage library, not a hosted upload service. It provi
 1. The browser asks your app for a presigned PUT URL.
 2. The server creates a `processing` image row and signs an S3/R2 upload URL.
 3. The browser uploads the file directly to the bucket.
-4. The browser asks your app to finalize. The server checks that the object exists and marks the row `ready`.
+4. The browser asks your app to finalize. The server checks the object's stored size and content type against the presign request, then marks the row `ready`.
 
 The client uses `/api/uploads/presign` and `/api/uploads/finalize`. Its `getImage` and `deleteImage` methods use `/api/images/:id`. You must mount matching handlers in your app.
 
@@ -73,7 +73,7 @@ export const finalize = createFinalizeHandler({ config, db, schema });
 
 The framework exports `octoload/nextjs` and `octoload/react-router` provide wrappers for these handlers. Pass an options object with `config`, `db`, and `schema`; see the exported handler types for each wrapper's request signature.
 
-**Authentication and validation belong in your app.** Supply a trusted `getUser` callback (or framework wrapper callback). The handler never accepts `ownerId` from the request body. Private reads, deletion, metadata updates, and owner-scoped lists require the matching user. Finalizing an owned upload requires its owner. Set `requireAuth: true` on presign and finalize routes to require a session for every upload. Without it, only public uploads can be created anonymously. The `limits` and hook fields exist in the config types, but the current core does not enforce file size/type limits or invoke hooks. Presigned PUT URLs expire after one hour. Configure bucket CORS to allow PUT from your application origin and the headers used for uploads.
+**Authentication belongs in your app.** Supply a trusted `getUser` callback (or framework wrapper callback). The handler never accepts `ownerId` from the request body. Private reads, deletion, metadata updates, and owner-scoped lists require the matching user. Finalizing an owned upload requires its owner. Set `requireAuth: true` on presign and finalize routes to require a session for every upload. Without it, only public uploads can be created anonymously. The core validates image requests and enforces `limits.maxFileSize` and `limits.allowedTypes` at presign. The PostgreSQL `byte_size` integer column limits uploads to 2,147,483,647 bytes. Finalize compares S3/R2 `HeadObject` size and content type with the declared values. These are metadata checks; they do not inspect image bytes or verify the client-supplied checksum. Hook fields exist in the config types but are not invoked by the current core. Presigned PUT URLs expire after one hour. Configure bucket CORS to allow PUT from your application origin and the headers used for uploads.
 
 If your app uses Better Auth, implement the generated session function with `auth.api.getSession({ headers: request.headers })` and return `session?.user ? { id: session.user.id } : null`. In a typical Next.js app, import `auth` from `src/lib/auth.ts`; in React Router, use `app/lib/auth.server.ts`. [Better Auth documents this server session API](https://better-auth.com/docs/basic-usage).
 

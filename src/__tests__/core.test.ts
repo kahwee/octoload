@@ -15,7 +15,10 @@ vi.mock('../storage/s3-adapter.js', () => ({
         .mockResolvedValue({ url: 'https://storage.test/upload' }),
       getPrivateUrl: vi.fn().mockResolvedValue('https://storage.test/private'),
       getPublicUrl: vi.fn().mockReturnValue('https://cdn.test/public'),
-      objectExists: vi.fn().mockResolvedValue(true),
+      headObject: vi.fn().mockResolvedValue({
+        ContentLength: 10,
+        ContentType: 'image/jpeg',
+      }),
       deleteObject: vi.fn(),
     };
   }),
@@ -113,6 +116,47 @@ describe('OctoloadCore.presign', () => {
       })
     ).rejects.toThrow('Public R2 uploads require storage.publicBaseUrl');
     expect(insert).not.toHaveBeenCalled();
+  });
+
+  it('enforces configured size and MIME limits before creating a row', async () => {
+    const insert = vi.fn(() => ({
+      values: () => ({ returning: async () => [{}] }),
+    }));
+    const core = new OctoloadCore(
+      {
+        storage: {
+          adapter: 's3',
+          bucket: 'images',
+          region: 'us-east-1',
+          credentials: { accessKeyId: 'key', secretAccessKey: 'secret' },
+        },
+        limits: {
+          maxFileSize: 100,
+          allowedTypes: ['image/jpeg'],
+          maxVariants: 0,
+        },
+      },
+      { insert } as unknown as DrizzleDB,
+      { images: {} } as unknown as DrizzleSchema
+    );
+    const request = {
+      filename: 'photo.jpg',
+      contentType: 'image/jpeg',
+      byteSize: 100,
+      ownerId: 'user_1',
+    };
+
+    await expect(core.presign({ ...request, byteSize: 101 })).rejects.toThrow(
+      'File exceeds the configured size limit'
+    );
+    await expect(
+      core.presign({ ...request, contentType: 'image/png' })
+    ).rejects.toThrow('File type is not allowed');
+    await expect(core.presign({ ...request, byteSize: 1.5 })).rejects.toThrow();
+    expect(insert).not.toHaveBeenCalled();
+
+    await expect(core.presign(request)).resolves.toHaveProperty('uploadUrl');
+    expect(insert).toHaveBeenCalledOnce();
   });
 });
 

@@ -154,8 +154,9 @@ export const presignRequestSchema = z.object({
   filename: z.string().min(1).max(255),
   contentType: z
     .string()
+    .max(100)
     .regex(/^image\/[a-z0-9+\-.]+$/i, 'Invalid content type'),
-  byteSize: z.number().min(1),
+  byteSize: z.number().int().min(1).max(2147483647),
   strategy: z.enum(['single', 'multipart']).default('single'),
   ownerId: z.string().min(1).max(255).optional(),
   orgId: z.string().min(1).max(255).optional(),

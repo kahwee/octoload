@@ -12,6 +12,7 @@ import type {
   PresignRequest,
   PresignResponse,
 } from '../types/index.js';
+import { finalizeRequestSchema, presignRequestSchema } from '../types/index.js';
 import { generateServerUUID } from '../utils/uuid.js';
 
 // Match PostgreSQL Drizzle instances without requiring a particular driver.
@@ -46,10 +47,12 @@ export class OctoloadCore<
   private db: TDb;
   private schema: TSchema;
   private storage: S3StorageAdapter;
+  private limits?: { maxFileSize?: number; allowedTypes?: string[] };
 
   constructor(config: OctoloadConfigLike, db: TDb, schema: TSchema) {
     this.db = db;
     this.schema = schema;
+    this.limits = config.limits;
 
     // Initialize storage adapter based on config
     const storageConfig =
@@ -74,6 +77,7 @@ export class OctoloadCore<
    * Generate presigned URL for file upload with hash-based storage key
    */
   async presign(request: PresignRequest): Promise<PresignResponse> {
+    request = presignRequestSchema.parse(request);
     if (request.strategy === 'multipart') {
       throw new Error(
         'Multipart uploads are not supported by the core upload flow'
@@ -81,6 +85,18 @@ export class OctoloadCore<
     }
     if (!request.ownerId && !request.isPublic) {
       throw new Error('Authentication required');
+    }
+    if (
+      this.limits?.maxFileSize !== undefined &&
+      request.byteSize > this.limits.maxFileSize
+    ) {
+      throw new Error('File exceeds the configured size limit');
+    }
+    if (
+      this.limits?.allowedTypes &&
+      !this.limits.allowedTypes.includes(request.contentType)
+    ) {
+      throw new Error('File type is not allowed');
     }
     // Include the record ID so uploads with identical metadata in the same
     // millisecond cannot overwrite one another in storage.
@@ -117,11 +133,7 @@ export class OctoloadCore<
     };
 
     // Insert image record
-    const insertResults = await this.db
-      .insert(this.getImagesTable())
-      .values(imageData)
-      .returning();
-    const _image = insertResults[0] as ImageRecord;
+    await this.db.insert(this.getImagesTable()).values(imageData).returning();
 
     // Generate presigned URL using storage adapter
     const uploadResult = await this.storage.getPresignedPutUrl(
@@ -147,6 +159,7 @@ export class OctoloadCore<
     request: FinalizeRequest,
     userId?: string
   ): Promise<ImageRecord> {
+    request = finalizeRequestSchema.parse(request);
     if (request.parts !== undefined) {
       throw new Error(
         'Multipart uploads are not supported by the core upload flow'
@@ -175,10 +188,35 @@ export class OctoloadCore<
       throw new Error('Upload is no longer processing');
     }
 
-    // Verify upload exists in storage
-    const exists = await this.storage.objectExists(request.storageKey);
-    if (!exists) {
-      throw new Error('Upload verification failed - file not found in storage');
+    // HeadObject checks the stored metadata without downloading the file.
+    let object: Awaited<ReturnType<S3StorageAdapter['headObject']>>;
+    try {
+      object = await this.storage.headObject(request.storageKey);
+    } catch (error) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        (('name' in error &&
+          (error.name === 'NotFound' || error.name === 'NoSuchKey')) ||
+          ('$metadata' in error &&
+            error.$metadata &&
+            typeof error.$metadata === 'object' &&
+            'httpStatusCode' in error.$metadata &&
+            error.$metadata.httpStatusCode === 404))
+      ) {
+        throw new Error(
+          'Upload verification failed - file not found in storage'
+        );
+      }
+      throw error;
+    }
+    if (object.ContentLength !== image.byteSize) {
+      throw new Error('Upload verification failed - file size does not match');
+    }
+    if (object.ContentType?.toLowerCase() !== image.contentType.toLowerCase()) {
+      throw new Error(
+        'Upload verification failed - content type does not match'
+      );
     }
 
     // Update image status to 'ready'

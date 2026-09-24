@@ -261,13 +261,25 @@ describe('Zod Schema Validation', () => {
       const maxRequest = {
         filename: 'a'.repeat(255),
         contentType: 'image/jpeg',
-        byteSize: Number.MAX_SAFE_INTEGER,
+        byteSize: 2147483647,
         alt: 'a'.repeat(500),
         title: 'a'.repeat(255),
         tags: Array(10).fill('tag'),
       };
 
       expect(() => presignRequestSchema.parse(maxRequest)).not.toThrow();
+    });
+
+    it('rejects sizes that cannot fit the PostgreSQL integer column', () => {
+      const request = {
+        filename: 'test.jpg',
+        contentType: 'image/jpeg',
+        byteSize: 2147483648,
+      };
+      expect(presignRequestSchema.safeParse(request).success).toBe(false);
+      expect(
+        presignRequestSchema.safeParse({ ...request, byteSize: 1.5 }).success
+      ).toBe(false);
     });
   });
 });
