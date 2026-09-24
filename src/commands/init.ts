@@ -29,6 +29,10 @@ export async function initCommand(options: InitOptions) {
   const appRoot = options.framework === 'nextjs' ? 'src' : 'app';
   const octoloadDir = join(cwd, appRoot, 'lib/octoload');
   const schemaPath = `${appRoot}/db/upload-schema.ts`;
+  const getUserCallback =
+    options.framework === 'nextjs'
+      ? '(request: Request) => getUploadUser(request)'
+      : '({ request }: { request: Request }) => getUploadUser(request)';
   const created: string[] = [];
   const add = (path: string, content: string) => {
     if (writeNew(path, content)) created.push(path);
@@ -60,7 +64,7 @@ export const uploadHandlerOptions = {
   config: octoloadConfig,
   db,
   schema,
-  getUser: ({ request }: { request: Request }) => getUploadUser(request),
+  getUser: ${getUserCallback},
 };
 `
   );

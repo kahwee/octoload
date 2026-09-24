@@ -46,6 +46,9 @@ jobs:
       - name: Check formatting
         run: pnpm run format:check
 
+      - name: Check README examples
+        run: pnpm run test:docs
+
       - name: Run tests with coverage
         run: pnpm exec vitest run --coverage
 

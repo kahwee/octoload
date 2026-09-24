@@ -39,6 +39,7 @@
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:package": "node scripts/smoke-built.js",
+    "test:docs": "node scripts/check-readme.js",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "coverage": "vitest run --coverage",

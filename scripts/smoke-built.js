@@ -32,6 +32,7 @@ assert.equal(typeof router.createPresignHandler, 'function');
 assert.match(runCli(['--help']), /init|generate/);
 
 const project = mkdtempSync(join(tmpdir(), 'octoload-built-'));
+const r2Project = mkdtempSync(join(tmpdir(), 'octoload-r2-built-'));
 try {
   runCli(['init', '--framework', 'nextjs', '--auth', 'better-auth'], project);
   const route = join(project, 'src/app/api/uploads/presign/route.ts');
@@ -40,6 +41,10 @@ try {
   assert.match(
     readFileSync(join(project, 'src/lib/octoload/auth.ts'), 'utf8'),
     /auth\.api\.getSession/
+  );
+  assert.match(
+    readFileSync(join(project, 'src/lib/octoload/server.ts'), 'utf8'),
+    /getUser: \(request: Request\) => getUploadUser\(request\)/
   );
 
   runCli(['generate'], project);
@@ -55,8 +60,39 @@ try {
   writeFileSync(route, 'custom route');
   runCli(['init', '--framework', 'nextjs', '--auth', 'better-auth'], project);
   assert.equal(readFileSync(route, 'utf8'), 'custom route');
+
+  runCli(
+    [
+      'init',
+      '--framework',
+      'react-router',
+      '--adapter',
+      'r2',
+      '--auth',
+      'better-auth',
+    ],
+    r2Project
+  );
+  runCli(['generate', '--output', 'app/db/upload-schema.ts'], r2Project);
+  assert.match(
+    readFileSync(join(r2Project, 'app/lib/octoload/server.ts'), 'utf8'),
+    /getUser: \(\{ request \}: \{ request: Request \}\) => getUploadUser\(request\)/
+  );
+  assert.match(
+    readFileSync(join(r2Project, 'app/lib/octoload/config.ts'), 'utf8'),
+    /R2_PUBLIC_BASE_URL/
+  );
+  assert.match(
+    readFileSync(join(r2Project, '.env.example'), 'utf8'),
+    /R2_REGION=auto/
+  );
+  assert.match(
+    readFileSync(join(r2Project, 'app/db/upload-schema.ts'), 'utf8'),
+    /ownerId: varchar\('owner_id', \{ length: 255 \}\)/
+  );
 } finally {
   rmSync(project, { recursive: true, force: true });
+  rmSync(r2Project, { recursive: true, force: true });
 }
 
 console.log('Built package exports and CLI scaffold passed.');

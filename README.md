@@ -1,140 +1,225 @@
 # Octoload
 
-Octoload is a TypeScript toolkit for **browser-to-S3 and Cloudflare R2 image uploads** with metadata stored through Drizzle ORM. Your application handles the presign and finalize requests; the image bytes go from the browser directly to object storage.
+Octoload sends images directly from the browser to **Amazon S3 or Cloudflare R2**. Your app signs the upload, stores metadata in PostgreSQL through Drizzle, and decides who may read or delete each image. Octoload provides a browser client, framework handlers, a schema generator, and an optional scaffold; it is not a hosted service.
 
-This repository is an early-stage library, not a hosted upload service. It provides a browser client, storage operations, framework handler wrappers, a PostgreSQL Drizzle schema generator, and a CLI. The application supplies its own database connection, authentication, routes, bucket, and CORS policy.
+1. The browser asks your app for a signed PUT URL. Your app creates a `processing` image row in PostgreSQL.
+2. The browser PUTs the bytes directly to S3 or R2.
+3. The browser asks your app to finalize. Your app checks the stored object and marks its row `ready`.
 
-## How it works
+The server supports single PUT uploads. It checks the stored object's size and content type before marking an image ready. These metadata checks do not inspect image bytes or verify the client-supplied SHA-256 checksum.
 
-1. The browser asks your app for a presigned PUT URL.
-2. The server creates a `processing` image row and signs an S3/R2 upload URL.
-3. The browser uploads the file directly to the bucket.
-4. The browser asks your app to finalize. The server checks the object's stored size and content type against the presign request, then marks the row `ready`.
+## Quick start: Next.js with Better Auth
 
-The client uses `/api/uploads/presign` and `/api/uploads/finalize`. Its `getImage` and `deleteImage` methods use `/api/images/:id`. You must mount matching handlers in your app.
-
-## Install
-
-Requires Node.js 22 or newer for server code and a browser with `XMLHttpRequest` for uploads.
+You need Node.js 22+, an existing Next.js app with PostgreSQL, a Drizzle database connection, a Better Auth instance exported from `src/lib/auth.ts`, and an S3 bucket. For Cloudflare R2, use the [R2 variant](#cloudflare-r2-variant) below.
 
 ```bash
-pnpm add octoload drizzle-orm
-```
-
-Generate the PostgreSQL schema, then include the generated file in your Drizzle configuration and apply your migrations using your normal Drizzle workflow:
-
-```bash
+pnpm add octoload drizzle-orm pg
+pnpm add -D drizzle-kit @types/pg
+pnpm exec octoload init --framework nextjs --adapter s3 --auth better-auth
 pnpm exec octoload generate --output src/db/upload-schema.ts
 ```
 
-`generate` **overwrites** its output file. Review the generated schema before using it. It defines `images`, `upload_sessions`, `asset_variants`, and `image_tags`; the current upload flow writes only image rows.
+`init` creates upload and image routes under `src/app/api`, plus `src/lib/octoload/{auth,config,server}.ts`, `drizzle.config.ts`, and `.env.example` when those files do not already exist. It does not overwrite existing files; it may append missing bucket variables to `.env.example`. `generate` **overwrites** its output file, so review the path before rerunning it.
 
-The generated `images.owner_id` and `images.org_id` columns are `varchar(255)`, so they accept Better Auth's default string IDs as well as UUID strings. `images.id` and `images.entity_id` remain UUIDs. If an existing installation has UUID owner or organization columns, migrate them before replacing its generated schema:
-
-```sql
-ALTER TABLE images ALTER COLUMN owner_id TYPE varchar(255) USING owner_id::text;
-ALTER TABLE images ALTER COLUMN org_id TYPE varchar(255) USING org_id::text;
-```
-
-Review any foreign keys or indexes on those columns as part of your migration. The upload handler takes `ownerId` from the trusted session, never from the request body. Your application must authorize any `orgId` supplied in a request before treating it as an organization-owned upload.
-
-For Next.js or React Router, `octoload init --framework nextjs` (or `react-router`) creates the config, upload and image routes, and a shared server module. It preserves existing files when rerun. Follow its printed steps to generate the schema, export your Drizzle `db`, and connect the generated `getUploadUser` function to your session provider. Pass `--auth better-auth` if your app already exports a Better Auth instance from `src/lib/auth.ts` (Next.js) or `app/lib/auth.server.ts` (React Router); the generated session function will use it. Generated upload routes return 401 until session lookup returns a user.
-
-## Server wiring
-
-Create a config and pass it, your Drizzle database, and the generated schema to the handlers. Here is the shape of the integration; mount the returned functions in the routes for your framework:
+Create `src/db/index.ts` if your app does not already export a Drizzle `db`:
 
 ```ts
-import { createFinalizeHandler, createPresignHandler } from 'octoload';
-import type { OctoloadConfig } from 'octoload';
-import { db } from './db.js';
-import * as schema from './db/upload-schema.js';
+import { drizzle } from 'drizzle-orm/node-postgres';
 
-const config: OctoloadConfig = {
-  storage: {
-    adapter: 's3', // use 'r2' and set endpoint for Cloudflare R2
-    bucket: process.env.S3_BUCKET!,
-    region: process.env.S3_REGION!,
-    credentials: {
-      accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
-    },
-  },
-  limits: {
-    maxFileSize: 10 * 1024 * 1024,
-    allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
-    maxVariants: 0,
-  },
-};
-
-export const presign = createPresignHandler({ config, db, schema });
-export const finalize = createFinalizeHandler({ config, db, schema });
+export const db = drizzle(process.env.DATABASE_URL!);
 ```
 
-The framework exports `octoload/nextjs` and `octoload/react-router` provide wrappers for these handlers. Pass an options object with `config`, `db`, and `schema`; see the exported handler types for each wrapper's request signature.
+The generated `server.ts` imports that `db` and `src/db/upload-schema.ts`. If your app already has `drizzle.config.ts`, include the generated schema alongside your existing schema files. For example:
 
-**Authentication belongs in your app.** Supply a trusted `getUser` callback (or framework wrapper callback). The handler never accepts `ownerId` from the request body. Private reads, deletion, metadata updates, and owner-scoped lists require the matching user. Finalizing an owned upload requires its owner. Set `requireAuth: true` on presign and finalize routes to require a session for every upload. Without it, only public uploads can be created anonymously. The core validates image requests and enforces `limits.maxFileSize` and `limits.allowedTypes` at presign. The PostgreSQL `byte_size` integer column limits uploads to 2,147,483,647 bytes. Finalize compares S3/R2 `HeadObject` size and content type with the declared values. These are metadata checks; they do not inspect image bytes or verify the client-supplied checksum. Hook fields exist in the config types but are not invoked by the current core. Presigned PUT URLs expire after one hour. Configure bucket CORS to allow PUT from your application origin and the headers used for uploads.
+```ts
+import { defineConfig } from 'drizzle-kit';
 
-If your app uses Better Auth, implement the generated session function with `auth.api.getSession({ headers: request.headers })` and return `session?.user ? { id: session.user.id } : null`. In a typical Next.js app, import `auth` from `src/lib/auth.ts`; in React Router, use `app/lib/auth.server.ts`. [Better Auth documents this server session API](https://better-auth.com/docs/basic-usage).
+export default defineConfig({
+  schema: ['./src/db/schema.ts', './src/db/upload-schema.ts'],
+  out: './migrations',
+  dialect: 'postgresql',
+  dbCredentials: { url: process.env.DATABASE_URL! },
+});
+```
 
-### Cloudflare R2 configuration
+Fill in `DATABASE_URL`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, and `S3_SECRET_ACCESS_KEY` in your server environment. Then generate and apply your PostgreSQL migration with your normal Drizzle workflow, for example:
 
-Use the same handlers and browser client for R2. Set `storage.adapter` to `'r2'`, `storage.region` to `'auto'`, and `storage.endpoint` to `https://<account-id>.r2.cloudflarestorage.com`; use R2 API credentials and your R2 bucket name. Configure the bucket's CORS rules for your application origin and upload headers.
+```bash
+pnpm exec drizzle-kit generate
+pnpm exec drizzle-kit migrate
+```
 
-For public R2 uploads, enable public access for the bucket and set `storage.publicBaseUrl` to its custom domain (recommended for production) or enabled `r2.dev` URL. Octoload rejects public R2 uploads without this URL before it creates an image row. The S3-compatible API endpoint is for authenticated API calls and cannot serve public assets. Private R2 uploads need no public domain and use signed GET URLs. `octoload init --adapter r2` includes `R2_PUBLIC_BASE_URL` and sets `R2_REGION=auto` in `.env.example`.
+The scaffold expects `auth` from `src/lib/auth.ts`. Its `getUploadUser` looks like this:
 
-### Clean up abandoned uploads
+```ts
+import { auth } from '../auth';
 
-Run `cleanupAbandonedUploads()` from a trusted scheduled server job with the same database and storage config as your handlers. It scans old `processing` and `failed` rows, deletes the corresponding object from S3 or R2, then deletes the row. It claims `processing` rows atomically so finalize cannot mark an upload ready after cleanup wins. Failed object or database deletions remain retryable on the next run.
+export async function getUploadUser(request: Request) {
+  const session = await auth.api.getSession({ headers: request.headers });
+  return session?.user ? { id: session.user.id } : null;
+}
+```
+
+The generated upload routes set `requireAuth: true`. For example, `src/app/api/uploads/presign/route.ts` contains:
+
+```ts
+import { createPresignHandler } from 'octoload/nextjs';
+import { uploadHandlerOptions } from '../../../../lib/octoload/server';
+
+export const POST = createPresignHandler({
+  ...uploadHandlerOptions,
+  requireAuth: true,
+});
+```
+
+The scaffold also creates `/api/uploads/finalize` and `/api/images/[imageId]` routes. A valid Better Auth session is required for uploads; private reads and all deletes require the matching owner. [Better Auth documents the server session API](https://better-auth.com/docs/integrations/next).
+
+If you generated a Next.js `server.ts` with an earlier Octoload scaffold, check its `getUser` callback. The Next.js wrapper passes a `Request` directly, so it must be `(request: Request) => getUploadUser(request)`. `init` preserves your existing file when rerun.
+
+### Upload from a Next.js client component
+
+For example, `src/app/components/photo-upload.tsx`:
+
+```tsx
+'use client';
+
+import { useState } from 'react';
+import { OctoloadClient } from 'octoload/client';
+
+export function PhotoUpload() {
+  const [status, setStatus] = useState('');
+
+  async function upload(file: File) {
+    const client = new OctoloadClient({ baseUrl: window.location.origin });
+    try {
+      const { image } = await client.uploadFile(file, {
+        alt: file.name,
+        onProgress: ({ percentage }) => setStatus(`Uploading ${percentage}%`),
+      });
+      const { url } = await client.getImage(image.id);
+      setStatus(`Uploaded: ${url}`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Upload failed');
+    }
+  }
+
+  return (
+    <>
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          if (file) void upload(file);
+        }}
+      />
+      <p>{status}</p>
+    </>
+  );
+}
+```
+
+Uploads are private by default. The client calls your app's `/api/uploads/presign` and `/api/uploads/finalize` routes, then PUTs the file directly to the bucket. `getImage` calls `/api/images/:id` and returns a signed GET URL for a private image. `uploadMultiple(files)` uploads in batches of three.
+
+### Bucket CORS
+
+Apply a CORS rule to the bucket so browsers at your app origin can send the signed PUT request. Replace the origin with yours:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://app.example.com"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["Content-Type"]
+  }
+]
+```
+
+This JSON shape works in the [S3 CORS editor](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ManageCorsUsing.html) and the [R2 dashboard CORS editor](https://developers.cloudflare.com/r2/buckets/cors/). Add other headers or methods if your application sends them. If you use a local development origin, add it explicitly.
+
+## Cloudflare R2 variant
+
+In an existing Next.js app, replace the quick start's `init` command with:
+
+```bash
+pnpm exec octoload init --framework nextjs --adapter r2 --auth better-auth
+pnpm exec octoload generate --output src/db/upload-schema.ts
+```
+
+The generated `.env.example` uses `R2_REGION=auto`. Fill in your R2 bucket, API token credentials, and S3-compatible endpoint:
+
+```dotenv
+R2_BUCKET=my-images
+R2_REGION=auto
+R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=<r2-access-key-id>
+R2_SECRET_ACCESS_KEY=<r2-secret-access-key>
+R2_PUBLIC_BASE_URL=
+```
+
+The R2 API endpoint signs uploads; it is not a public image URL. Private uploads work with an empty `R2_PUBLIC_BASE_URL` and use signed GET URLs. To upload public images, enable public access on the bucket and set `R2_PUBLIC_BASE_URL` to its custom domain, such as `https://images.example.com`, or its enabled `r2.dev` URL. Octoload rejects public R2 uploads without that value before creating an image row. Cloudflare recommends a custom domain for production public delivery; see [R2 public buckets](https://developers.cloudflare.com/r2/buckets/public-buckets/) and its [S3 SDK configuration](https://developers.cloudflare.com/r2/examples/aws/aws-sdk-js-v3/).
+
+For an S3 bucket served through your own CDN, set `storage.publicBaseUrl` in the generated `config.ts` too. The scaffold does not enable public bucket access for either provider. `isPublic` is metadata, not a bucket permission change.
+
+## React Router variant
+
+Use `--framework react-router` with either `--adapter s3` or `--adapter r2`:
+
+```bash
+pnpm exec octoload init --framework react-router --adapter r2 --auth better-auth
+pnpm exec octoload generate --output app/db/upload-schema.ts
+```
+
+This creates `app/lib/octoload/{auth,config,server}.ts` and routes for `api.uploads.presign`, `api.uploads.finalize`, and `api.images.$imageId`. Export your Drizzle `db` from `app/db/index.ts`. The Better Auth scaffold imports `auth` from `app/lib/auth.server.ts`; adjust that import if your app uses another path. Include `app/db/upload-schema.ts` in your Drizzle config and apply its migration.
+
+## Scheduled cleanup
+
+Presigned PUT URLs expire after one hour. Run cleanup from a trusted scheduled server job to remove old `processing` or `failed` rows and their S3/R2 objects:
 
 ```ts
 import { OctoloadCore } from 'octoload';
-import { config } from './upload-config.js';
-import { db } from './db.js';
-import * as schema from './db/upload-schema.js';
+import { db } from './db';
+import * as schema from './db/upload-schema';
+import { octoloadConfig } from './lib/octoload/config';
 
-const core = new OctoloadCore(config, db, schema);
+const core = new OctoloadCore(octoloadConfig, db, schema);
 const result = await core.cleanupAbandonedUploads({
   olderThanMs: 2 * 60 * 60 * 1000,
   limit: 100,
 });
-if (result.errors.length > 0) {
-  console.error('Upload cleanup errors', result.errors);
-}
+
+if (result.errors.length) console.error('Upload cleanup errors', result.errors);
 ```
 
-The default age is two hours, after the one-hour presigned PUT URL expires. The minimum age is one hour; `limit` defaults to 100 and accepts 1–1000. Schedule repeated runs until the backlog is clear, and monitor `errors`. This cleans up **single PUT** objects and image rows. It does not abort incomplete multipart upload sessions: the active core flow does not create them. If your application uses the adapter's lower-level multipart methods, configure an S3 `AbortIncompleteMultipartUpload` lifecycle rule. R2 automatically aborts incomplete multipart uploads after seven days by default; you can change that with an R2 lifecycle rule.
+The defaults are two hours and 100 rows; `olderThanMs` must be at least one hour, and `limit` accepts 1–1000. Schedule repeated runs while `scanned` reaches the limit. Cleanup claims a stale row before deleting its object, so it cannot turn a completed upload into a deleted one. Failed deletions remain retryable.
 
-## Browser upload
+This cleans up single PUT uploads. If you use the storage adapter's lower-level multipart methods yourself, configure an [S3 incomplete multipart lifecycle rule](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html). [R2 aborts incomplete multipart uploads after seven days by default](https://developers.cloudflare.com/r2/objects/upload-objects/).
 
-```ts
-import { OctoloadClient } from 'octoload/client';
+## Limits, access, and current scope
 
-const client = new OctoloadClient({ baseUrl: window.location.origin });
-const result = await client.uploadFile(file, {
-  onProgress: ({ percentage }) => console.log(`${percentage}%`),
-});
+- The generated config allows JPEG, PNG, WebP, and GIF up to 10 MiB. Change `limits.maxFileSize` and `limits.allowedTypes` in `config.ts`. PostgreSQL's `byte_size` integer column caps an upload at 2,147,483,647 bytes. Octoload enforces configured limits at presign, then compares `HeadObject` metadata at finalize. It does not inspect file contents.
+- The handler takes `ownerId` from the trusted session, never from the request body. If your app accepts `orgId`, authorize that organization membership in your app before treating the image as organization owned.
+- For another session provider, use `--auth custom` and replace the generated `getUploadUser` stub. The scaffold's upload routes still require a session. To allow anonymous public uploads, change those routes' `requireAuth` setting; anonymous private uploads remain disallowed.
+- The generated `images.owner_id` and `images.org_id` columns are `varchar(255)` so Better Auth's string IDs work. `images.id` and `images.entity_id` remain UUIDs. For an existing database with UUID owner or organization columns, migrate them before replacing the generated schema:
 
-console.log(result.image.id);
-```
+  ```sql
+  ALTER TABLE images ALTER COLUMN owner_id TYPE varchar(255) USING owner_id::text;
+  ALTER TABLE images ALTER COLUMN org_id TYPE varchar(255) USING org_id::text;
+  ```
 
-The client uploads one file with a presigned PUT URL, then calls finalize. `uploadMultiple` uploads files in batches of three. `getImage` and `deleteImage` need corresponding routes in your app.
-
-## Current scope
-
-- The active server flow is **single PUT uploads** on both S3 and R2. The core rejects `strategy: 'multipart'` and finalize requests with `parts`. Multipart types, low-level storage methods, and client handling exist, but no multipart server workflow is wired up.
-- The schema generator emits **PostgreSQL** tables. MySQL and SQLite schemas are not implemented.
-- `octoload init` creates framework routes and a fail-closed auth hook. You still connect your existing Drizzle database and session provider.
-- Variant and tag tables are schema only. Image processing, tag writes, and custom storage adapters are not implemented by the upload flow.
-- `isPublic` is metadata, not a bucket permission change. Configure public delivery yourself; private reads use signed GET URLs. `publicUrl` is stored only for public images.
+  Review foreign keys and indexes on those columns during the migration.
+- The core upload flow uses single PUT on S3 and R2. It rejects `strategy: 'multipart'` and finalize requests with `parts`. Multipart types and low-level adapter methods exist, but there is no multipart server workflow.
+- The schema generator emits PostgreSQL tables. The `upload_sessions`, `asset_variants`, and `image_tags` tables are available in the schema, but the current upload flow writes only `images`. Image processing, tag writes, hooks, custom storage adapters, MySQL, and SQLite are not implemented by the core flow.
 
 ## Development
 
 ```bash
 pnpm install
-pnpm test
 pnpm run typecheck
 pnpm run lint
+pnpm run format:check
+pnpm run test:docs
+pnpm run test:coverage
 pnpm run build
 pnpm run test:package
 ```

@@ -39,8 +39,14 @@ pnpm run format:check
 # Coverage report
 pnpm run test:coverage
 
+# Check the README's TypeScript and JSON examples
+pnpm run test:docs
+
+# Check built package exports and generated scaffolds (after build)
+pnpm run test:package
+
 # Full verification (before submitting PR)
-pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm test && pnpm run build
+pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:docs && pnpm run test:coverage && pnpm run build && pnpm run test:package
 ```
 
 ## Contribution Guidelines
