@@ -6,6 +6,7 @@ export interface StorageAdapter {
   bucket: string;
   region: string;
   endpoint?: string; // For R2
+  publicBaseUrl?: string; // Public bucket domain; required for public R2 uploads
   credentials: {
     accessKeyId: string;
     secretAccessKey: string;
@@ -44,6 +45,7 @@ export interface LegacyOctoloadConfig {
   bucket: string;
   region: string;
   endpoint?: string;
+  publicBaseUrl?: string;
   credentials: {
     accessKeyId: string;
     secretAccessKey: string;

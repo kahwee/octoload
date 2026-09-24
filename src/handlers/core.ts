@@ -43,13 +43,11 @@ export class OctoloadCore<
   TDb extends DrizzleDB = DrizzleDB,
   TSchema extends DrizzleSchema = DrizzleSchema,
 > {
-  private config: OctoloadConfigLike;
   private db: TDb;
   private schema: TSchema;
   private storage: S3StorageAdapter;
 
   constructor(config: OctoloadConfigLike, db: TDb, schema: TSchema) {
-    this.config = config;
     this.db = db;
     this.schema = schema;
 
@@ -62,6 +60,7 @@ export class OctoloadCore<
             bucket: config.bucket || '',
             region: config.region || 'us-east-1',
             endpoint: config.endpoint,
+            publicBaseUrl: config.publicBaseUrl,
             credentials: config.credentials || {
               accessKeyId: '',
               secretAccessKey: '',
@@ -96,6 +95,7 @@ export class OctoloadCore<
       request.entityType && request.entityId
         ? `${request.entityType}/${request.entityId}/${fileHash}.${fileExtension}`
         : `uploads/${fileHash}.${fileExtension}`;
+    if (request.isPublic) this.storage.getPublicUrl(storageKey);
 
     // Create image record in database with 'processing' status
     const imageData: NewImage = {
@@ -187,7 +187,9 @@ export class OctoloadCore<
       .set({
         status: 'ready',
         checksum: request.checksum || null,
-        publicUrl: this.getPublicUrl(request.storageKey),
+        publicUrl: image.isPublic
+          ? this.storage.getPublicUrl(request.storageKey)
+          : null,
         updatedAt: new Date(),
       })
       .where(
@@ -315,7 +317,7 @@ export class OctoloadCore<
 
     // Generate download URL
     const url = image.isPublic
-      ? this.getPublicUrl(image.storageKey)
+      ? this.storage.getPublicUrl(image.storageKey)
       : await this.storage.getPrivateUrl(image.storageKey, 3600);
 
     return { image: image as ImageRecord, url };
@@ -437,30 +439,6 @@ export class OctoloadCore<
     const updatedImage = updateResults[0] as ImageRecord;
 
     return updatedImage;
-  }
-
-  /**
-   * Helper method to get public URL for a storage key
-   */
-  private getPublicUrl(storageKey: string): string {
-    const storageConfig =
-      'storage' in this.config ? this.config.storage : this.config;
-
-    // For R2, construct public URL
-    if (storageConfig.adapter === 'r2') {
-      // Extract account ID from endpoint if available
-      const endpoint = storageConfig.endpoint || '';
-      const match = endpoint.match(
-        /https:\/\/([^.]+)\.r2\.cloudflarestorage\.com/
-      );
-      if (match) {
-        const accountId = match[1];
-        return `https://${storageConfig.bucket}.${accountId}.r2.cloudflarestorage.com/${storageKey}`;
-      }
-    }
-
-    // Default S3 public URL format
-    return `https://${storageConfig.bucket}.s3.${storageConfig.region}.amazonaws.com/${storageKey}`;
   }
 
   /**

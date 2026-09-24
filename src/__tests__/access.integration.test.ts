@@ -9,6 +9,7 @@ import type { ImageRecord } from '../types/index.js';
 
 const storage = vi.hoisted(() => ({
   getPrivateUrl: vi.fn(async () => 'https://storage.test/signed-read'),
+  getPublicUrl: vi.fn(() => 'https://cdn.test/public'),
   deleteObject: vi.fn(async () => undefined),
 }));
 

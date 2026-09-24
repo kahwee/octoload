@@ -79,7 +79,9 @@ If your app uses Better Auth, implement the generated session function with `aut
 
 ### Cloudflare R2 configuration
 
-Use the same handlers and browser client for R2. Set `storage.adapter` to `'r2'`, `storage.region` to `'auto'`, and `storage.endpoint` to `https://<account-id>.r2.cloudflarestorage.com`; use R2 API credentials and your R2 bucket name. Configure the bucket's CORS rules for your application origin and upload headers. Public delivery requires an R2 custom domain or `r2.dev` public bucket URL; the S3-compatible API endpoint is for authenticated API calls and is not a public asset domain.
+Use the same handlers and browser client for R2. Set `storage.adapter` to `'r2'`, `storage.region` to `'auto'`, and `storage.endpoint` to `https://<account-id>.r2.cloudflarestorage.com`; use R2 API credentials and your R2 bucket name. Configure the bucket's CORS rules for your application origin and upload headers.
+
+For public R2 uploads, enable public access for the bucket and set `storage.publicBaseUrl` to its custom domain (recommended for production) or enabled `r2.dev` URL. Octoload rejects public R2 uploads without this URL before it creates an image row. The S3-compatible API endpoint is for authenticated API calls and cannot serve public assets. Private R2 uploads need no public domain and use signed GET URLs. `octoload init --adapter r2` includes `R2_PUBLIC_BASE_URL` and sets `R2_REGION=auto` in `.env.example`.
 
 ### Clean up abandoned uploads
 
@@ -124,7 +126,7 @@ The client uploads one file with a presigned PUT URL, then calls finalize. `uplo
 - The schema generator emits **PostgreSQL** tables. MySQL and SQLite schemas are not implemented.
 - `octoload init` creates framework routes and a fail-closed auth hook. You still connect your existing Drizzle database and session provider.
 - Variant and tag tables are schema only. Image processing, tag writes, and custom storage adapters are not implemented by the upload flow.
-- `isPublic` is metadata, not a bucket permission change. Configure public delivery yourself; private reads use signed GET URLs.
+- `isPublic` is metadata, not a bucket permission change. Configure public delivery yourself; private reads use signed GET URLs. `publicUrl` is stored only for public images.
 
 ## Development
 

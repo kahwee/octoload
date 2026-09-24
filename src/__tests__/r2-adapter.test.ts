@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { S3Client } from '@aws-sdk/client-s3';
 import { S3StorageAdapter } from '../storage/s3-adapter.js';
 
 // Mock the AWS SDK for R2 testing
@@ -33,10 +34,11 @@ describe('R2StorageAdapter (Cloudflare R2)', () => {
     vi.clearAllMocks();
     // Test R2 configuration
     adapter = new S3StorageAdapter({
-      adapter: 's3', // R2 uses S3-compatible API
+      adapter: 'r2',
       bucket: 'test-r2-bucket',
       region: 'auto', // R2 uses 'auto' region
       endpoint: 'https://accountid.r2.cloudflarestorage.com',
+      publicBaseUrl: 'https://images.example.com',
       credentials: {
         accessKeyId: 'r2-access-key',
         secretAccessKey: 'r2-secret-key',
@@ -46,13 +48,17 @@ describe('R2StorageAdapter (Cloudflare R2)', () => {
 
   describe('R2-specific configuration', () => {
     it('should handle R2 endpoint configuration', () => {
-      expect(adapter).toBeDefined();
-      // R2 uses the same S3StorageAdapter but with custom endpoint
+      expect(S3Client).toHaveBeenCalledWith(
+        expect.objectContaining({
+          endpoint: 'https://accountid.r2.cloudflarestorage.com',
+          region: 'auto',
+        })
+      );
     });
 
     it('should use auto region for R2', () => {
       const r2Adapter = new S3StorageAdapter({
-        adapter: 's3',
+        adapter: 'r2',
         bucket: 'r2-bucket',
         region: 'auto',
         endpoint: 'https://test.r2.cloudflarestorage.com',
@@ -69,7 +75,7 @@ describe('R2StorageAdapter (Cloudflare R2)', () => {
       // R2 adapter currently uses S3 implementation, so it accepts standard endpoints
       expect(() => {
         new S3StorageAdapter({
-          adapter: 's3',
+          adapter: 'r2',
           bucket: 'r2-bucket',
           region: 'auto',
           endpoint: 'https://r2.cloudflarestorage.com',
@@ -194,30 +200,39 @@ describe('R2StorageAdapter (Cloudflare R2)', () => {
   });
 
   describe('R2 public URLs', () => {
-    it('should generate R2 public URLs correctly', () => {
-      const url = adapter.getPublicUrl('public-file.jpg');
-
-      // R2 adapter currently uses S3 implementation
-      expect(url).toBe(
-        'https://test-r2-bucket.s3.auto.amazonaws.com/public-file.jpg'
+    it('uses the configured public domain, not the API endpoint', () => {
+      expect(adapter.getPublicUrl('folder/public file.jpg')).toBe(
+        'https://images.example.com/folder/public%20file.jpg'
       );
     });
 
-    it('should handle R2 custom domain URLs', () => {
+    it('requires a public domain for public R2 URLs', () => {
       const customDomainAdapter = new S3StorageAdapter({
-        adapter: 's3',
+        adapter: 'r2',
         bucket: 'r2-bucket',
         region: 'auto',
-        endpoint: 'https://cdn.example.com',
+        endpoint: 'https://accountid.r2.cloudflarestorage.com',
         credentials: {
           accessKeyId: 'key',
           secretAccessKey: 'secret',
         },
       });
 
-      const url = customDomainAdapter.getPublicUrl('image.jpg');
-      // Currently uses S3-style URL format
-      expect(url).toBe('https://r2-bucket.s3.auto.amazonaws.com/image.jpg');
+      expect(() => customDomainAdapter.getPublicUrl('image.jpg')).toThrow(
+        'Public R2 uploads require storage.publicBaseUrl'
+      );
+    });
+
+    it('requires an API endpoint for R2', () => {
+      expect(
+        () =>
+          new S3StorageAdapter({
+            adapter: 'r2',
+            bucket: 'r2-bucket',
+            region: 'auto',
+            credentials: { accessKeyId: 'key', secretAccessKey: 'secret' },
+          })
+      ).toThrow('R2 endpoint is required');
     });
   });
 

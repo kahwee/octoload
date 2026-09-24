@@ -131,7 +131,7 @@ export const octoloadConfig: OctoloadConfig = {
     adapter: '${options.adapter}',
     bucket: process.env.${prefix}_BUCKET!,
     region: process.env.${prefix}_REGION!,
-    ${options.adapter === 'r2' ? 'endpoint: process.env.R2_ENDPOINT!,\n    ' : ''}credentials: {
+    ${options.adapter === 'r2' ? 'endpoint: process.env.R2_ENDPOINT!,\n    publicBaseUrl: process.env.R2_PUBLIC_BASE_URL || undefined,\n    ' : ''}credentials: {
       accessKeyId: process.env.${prefix}_ACCESS_KEY_ID!,
       secretAccessKey: process.env.${prefix}_SECRET_ACCESS_KEY!,
     },
@@ -150,10 +150,10 @@ function generateEnvTemplate(options: InitOptions): string {
   return `
 # Octoload ${prefix} configuration
 ${prefix}_BUCKET=your-bucket-name
-${prefix}_REGION=us-east-1
+${prefix}_REGION=${options.adapter === 'r2' ? 'auto' : 'us-east-1'}
 ${prefix}_ACCESS_KEY_ID=your-access-key
 ${prefix}_SECRET_ACCESS_KEY=your-secret-key
-${options.adapter === 'r2' ? 'R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com\n' : ''}`;
+${options.adapter === 'r2' ? 'R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com\n# Set for public R2 uploads (custom domain or enabled r2.dev URL)\nR2_PUBLIC_BASE_URL=\n' : ''}`;
 }
 
 type AddFile = (path: string, content: string) => void;

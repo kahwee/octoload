@@ -125,6 +125,18 @@ describe('S3StorageAdapter', () => {
       expect(url).toBe('https://test-bucket.s3.amazonaws.com/test-file.jpg');
     });
 
+    it('uses the configured region and encodes object keys', () => {
+      const regional = new S3StorageAdapter({
+        adapter: 's3',
+        bucket: 'test-bucket',
+        region: 'us-west-2',
+        credentials: { accessKeyId: 'key', secretAccessKey: 'secret' },
+      });
+      expect(regional.getPublicUrl('photos/my image.jpg')).toBe(
+        'https://test-bucket.s3.us-west-2.amazonaws.com/photos/my%20image.jpg'
+      );
+    });
+
     it('should generate private URL', async () => {
       const url = await adapter.getPrivateUrl('private-file.jpg', 1800);
       expect(url).toBe('https://example.com/presigned-url');

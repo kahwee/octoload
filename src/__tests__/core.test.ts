@@ -14,6 +14,7 @@ vi.mock('../storage/s3-adapter.js', () => ({
         .fn()
         .mockResolvedValue({ url: 'https://storage.test/upload' }),
       getPrivateUrl: vi.fn().mockResolvedValue('https://storage.test/private'),
+      getPublicUrl: vi.fn().mockReturnValue('https://cdn.test/public'),
       objectExists: vi.fn().mockResolvedValue(true),
       deleteObject: vi.fn(),
     };
@@ -78,6 +79,40 @@ describe('OctoloadCore.presign', () => {
     expect(
       vi.mocked(S3StorageAdapter).mock.results[0].value.getPresignedPutUrl
     ).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects missing public delivery configuration before creating a row', async () => {
+    vi.mocked(S3StorageAdapter).mockImplementationOnce(
+      function MissingPublicUrlMock() {
+        return {
+          getPublicUrl: () => {
+            throw new Error('Public R2 uploads require storage.publicBaseUrl');
+          },
+        } as unknown as S3StorageAdapter;
+      }
+    );
+    const insert = vi.fn();
+    const core = new OctoloadCore(
+      {
+        adapter: 'r2',
+        bucket: 'images',
+        region: 'auto',
+        endpoint: 'https://account.r2.cloudflarestorage.com',
+        credentials: { accessKeyId: 'key', secretAccessKey: 'secret' },
+      },
+      { insert } as unknown as DrizzleDB,
+      { images: {} } as unknown as DrizzleSchema
+    );
+
+    await expect(
+      core.presign({
+        filename: 'photo.jpg',
+        contentType: 'image/jpeg',
+        byteSize: 10,
+        isPublic: true,
+      })
+    ).rejects.toThrow('Public R2 uploads require storage.publicBaseUrl');
+    expect(insert).not.toHaveBeenCalled();
   });
 });
 

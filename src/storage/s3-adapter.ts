@@ -18,7 +18,9 @@ import type {
 export class S3StorageAdapter {
   private client: S3Client;
   private bucket: string;
+  private region: string;
   private isR2: boolean;
+  private publicBaseUrl?: string;
 
   constructor(config: StorageAdapter) {
     // Validate configuration
@@ -41,8 +43,11 @@ export class S3StorageAdapter {
       credentials: config.credentials,
     };
 
-    // R2 configuration
-    if (config.adapter === 'r2' && config.endpoint) {
+    // R2 uses an S3-compatible API endpoint, separate from its public domain.
+    if (config.adapter === 'r2' && !config.endpoint) {
+      throw new Error('R2 endpoint is required');
+    }
+    if (config.adapter === 'r2') {
       clientConfig.endpoint = config.endpoint;
       this.isR2 = true;
     } else {
@@ -51,6 +56,25 @@ export class S3StorageAdapter {
 
     this.client = new S3Client(clientConfig);
     this.bucket = config.bucket;
+    this.region = config.region;
+    if (config.publicBaseUrl) {
+      let base: URL;
+      try {
+        base = new URL(config.publicBaseUrl);
+      } catch {
+        throw new Error('publicBaseUrl must be an absolute HTTP URL');
+      }
+      if (
+        !['http:', 'https:'].includes(base.protocol) ||
+        base.username ||
+        base.password ||
+        base.search ||
+        base.hash
+      ) {
+        throw new Error('publicBaseUrl must be an absolute HTTP URL');
+      }
+      this.publicBaseUrl = base.href.replace(/\/+$/, '');
+    }
   }
 
   async getPresignedPutUrl(
@@ -144,20 +168,19 @@ export class S3StorageAdapter {
   }
 
   getPublicUrl(key: string): string {
+    const encodedKey = key.split('/').map(encodeURIComponent).join('/');
+    if (this.publicBaseUrl) {
+      return `${this.publicBaseUrl}/${encodedKey}`;
+    }
     if (this.isR2) {
-      // R2 public URL format - use custom domain if available
-      const endpoint = this.client.config.endpoint;
-      if (typeof endpoint === 'string') {
-        return `${endpoint}/${this.bucket}/${key}`;
-      }
+      throw new Error('Public R2 uploads require storage.publicBaseUrl');
     }
 
     // S3 public URL format - use region-specific endpoint
-    const region = this.client.config.region;
-    if (region === 'us-east-1') {
-      return `https://${this.bucket}.s3.amazonaws.com/${key}`;
+    if (this.region === 'us-east-1') {
+      return `https://${this.bucket}.s3.amazonaws.com/${encodedKey}`;
     }
-    return `https://${this.bucket}.s3.${region}.amazonaws.com/${key}`;
+    return `https://${this.bucket}.s3.${this.region}.amazonaws.com/${encodedKey}`;
   }
 
   async getPrivateUrl(key: string, expiresIn: number = 3600): Promise<string> {

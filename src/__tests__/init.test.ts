@@ -60,5 +60,11 @@ describe('init scaffold', () => {
     const auth = readFileSync(join(dir, 'app/lib/octoload/auth.ts'), 'utf8');
     expect(auth).toContain("from '../auth.server'");
     expect(auth).toContain('auth.api.getSession({ headers: request.headers })');
+    const env = readFileSync(join(dir, '.env.example'), 'utf8');
+    expect(env).toContain('R2_REGION=auto');
+    expect(env).toContain('R2_PUBLIC_BASE_URL=');
+    expect(
+      readFileSync(join(dir, 'app/lib/octoload/config.ts'), 'utf8')
+    ).toContain('publicBaseUrl: process.env.R2_PUBLIC_BASE_URL || undefined');
   });
 });

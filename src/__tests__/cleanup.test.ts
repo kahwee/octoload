@@ -148,6 +148,17 @@ describe.each(['s3', 'r2'] as const)(
       ).rejects.toThrow('Upload is no longer processing');
       expect(storage.objectExists).toHaveBeenCalledWith(row.storageKey);
     });
+
+    it('does not store a public URL for a private image', async () => {
+      const row = image();
+      const { core } = makeCore(provider, row);
+      const finalized = await core.finalize(
+        { storageKey: row.storageKey },
+        row.ownerId
+      );
+      expect(finalized.status).toBe('ready');
+      expect(finalized.publicUrl).toBeNull();
+    });
   }
 );
 

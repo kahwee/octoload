@@ -47,6 +47,10 @@ try {
     readFileSync(join(project, 'src/db/upload-schema.ts'), 'utf8'),
     /export const images = pgTable/
   );
+  assert.match(
+    readFileSync(join(project, 'src/db/upload-schema.ts'), 'utf8'),
+    /ownerId: varchar\('owner_id', \{ length: 255 \}\)/
+  );
 
   writeFileSync(route, 'custom route');
   runCli(['init', '--framework', 'nextjs', '--auth', 'better-auth'], project);
