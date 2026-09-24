@@ -11,12 +11,12 @@ type NextRequest = Request & {
   };
 };
 
-import type { HandlerOptions, HandlerContext } from '../handlers/index.js';
+import type { HandlerContext, HandlerOptions } from '../handlers/index.js';
 import {
-  createPresignHandler,
+  createDeleteImageHandler,
   createFinalizeHandler,
   createGetImageHandler,
-  createDeleteImageHandler,
+  createPresignHandler,
 } from '../handlers/index.js';
 
 export interface NextJSHandlerOptions extends Omit<HandlerOptions, 'getUser'> {
@@ -43,7 +43,11 @@ export function createNextJSFinalizeHandler(options: NextJSHandlerOptions) {
   const baseHandler = createFinalizeHandler(baseOptions);
 
   return async (request: NextRequest) => {
-    return baseHandler(request);
+    const user = getUser ? await getUser(request) : null;
+    return baseHandler(request, {
+      request,
+      user: user ? { ...user } : undefined,
+    });
   };
 }
 
@@ -53,16 +57,17 @@ export function createNextJSGetImageHandler(options: NextJSHandlerOptions) {
 
   return async (
     request: NextRequest,
-    { params }: { params: { imageId: string } }
+    { params }: { params: { imageId: string } | Promise<{ imageId: string }> }
   ) => {
+    const resolvedParams = await params;
     const user = getUser ? await getUser(request) : null;
     const context: HandlerContext = {
       request,
       user: user ? { ...user } : undefined,
-      params,
+      params: resolvedParams,
     };
 
-    return baseHandler(request, params.imageId, context);
+    return baseHandler(request, resolvedParams.imageId, context);
   };
 }
 
@@ -72,23 +77,24 @@ export function createNextJSDeleteImageHandler(options: NextJSHandlerOptions) {
 
   return async (
     request: NextRequest,
-    { params }: { params: { imageId: string } }
+    { params }: { params: { imageId: string } | Promise<{ imageId: string }> }
   ) => {
+    const resolvedParams = await params;
     const user = getUser ? await getUser(request) : null;
     const context: HandlerContext = {
       request,
       user: user ? { ...user } : undefined,
-      params,
+      params: resolvedParams,
     };
 
-    return baseHandler(request, params.imageId, context);
+    return baseHandler(request, resolvedParams.imageId, context);
   };
 }
 
 // Re-export for backward compatibility with the CLI templates
 export {
-  createNextJSPresignHandler as createPresignHandler,
+  createNextJSDeleteImageHandler as createDeleteImageHandler,
   createNextJSFinalizeHandler as createFinalizeHandler,
   createNextJSGetImageHandler as createGetImageHandler,
-  createNextJSDeleteImageHandler as createDeleteImageHandler,
+  createNextJSPresignHandler as createPresignHandler,
 };

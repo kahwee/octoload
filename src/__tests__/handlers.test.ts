@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { HandlerOptions } from '../handlers/index.js';
 import {
   createDeleteImageHandler,
   createFinalizeHandler,
   createGetImageHandler,
+  createGetImagesForEntityHandler,
   createPresignHandler,
 } from '../handlers/index.js';
-import type { HandlerOptions } from '../handlers/index.js';
 
 // Create mock core methods
 const mockCore = {
@@ -204,6 +205,41 @@ describe('Handlers', () => {
       expect(mockCore.presign).not.toHaveBeenCalled();
     });
 
+    it('ignores an owner ID supplied by an unauthenticated client', async () => {
+      const handler = createPresignHandler(handlerOptions);
+      mockCore.presign.mockResolvedValue({ storageKey: 'uploads/test.jpg' });
+      const request = new Request('http://localhost/api/uploads/presign', {
+        method: 'POST',
+        body: JSON.stringify({
+          filename: 'test.jpg',
+          contentType: 'image/jpeg',
+          byteSize: 1,
+          isPublic: true,
+          ownerId: 'someone-else',
+        }),
+      });
+
+      await handler(request);
+      expect(mockCore.presign).toHaveBeenCalledWith(
+        expect.objectContaining({ ownerId: undefined })
+      );
+    });
+
+    it('rejects an anonymous private upload before signing', async () => {
+      const handler = createPresignHandler(handlerOptions);
+      const request = new Request('http://localhost/api/uploads/presign', {
+        method: 'POST',
+        body: JSON.stringify({
+          filename: 'secret.jpg',
+          contentType: 'image/jpeg',
+          byteSize: 1,
+        }),
+      });
+      const response = await handler(request);
+      expect(response.status).toBe(401);
+      expect(mockCore.presign).not.toHaveBeenCalled();
+    });
+
     it('should handle multipart uploads for large files', async () => {
       const handler = createPresignHandler(handlerOptions);
 
@@ -293,9 +329,10 @@ describe('Handlers', () => {
       expect(data.publicUrl).toBe('https://cdn.example.com/test.jpg');
 
       // Verify the finalize method was called with correct data
-      expect(mockCore.finalize).toHaveBeenCalledWith({
-        storageKey: 'uploads/2025/test.jpg',
-      });
+      expect(mockCore.finalize).toHaveBeenCalledWith(
+        { storageKey: 'uploads/2025/test.jpg' },
+        undefined
+      );
     });
 
     it('should handle multipart upload completion', async () => {
@@ -333,14 +370,17 @@ describe('Handlers', () => {
       expect(response.status).toBe(200);
 
       // Verify the finalize method was called with correct data
-      expect(mockCore.finalize).toHaveBeenCalledWith({
-        storageKey: 'uploads/2025/large-file.jpg',
-        uploadId: 'multipart-123',
-        parts: [
-          { partNumber: 1, etag: 'part1-etag' },
-          { partNumber: 2, etag: 'part2-etag' },
-        ],
-      });
+      expect(mockCore.finalize).toHaveBeenCalledWith(
+        {
+          storageKey: 'uploads/2025/large-file.jpg',
+          uploadId: 'multipart-123',
+          parts: [
+            { partNumber: 1, etag: 'part1-etag' },
+            { partNumber: 2, etag: 'part2-etag' },
+          ],
+        },
+        undefined
+      );
     });
 
     it('should handle file verification failure', async () => {
@@ -366,6 +406,15 @@ describe('Handlers', () => {
   });
 
   describe('createGetImageHandler', () => {
+    it('returns 401 when a private image requires authentication', async () => {
+      const handler = createGetImageHandler(handlerOptions);
+      mockCore.getImage.mockRejectedValue(new Error('Authentication required'));
+      const request = new Request('http://localhost/api/images/img-456');
+
+      const response = await handler(request, 'img-456');
+      expect(response.status).toBe(401);
+      expect(mockCore.getImage).toHaveBeenCalledWith('img-456', undefined);
+    });
     it('should return public image', async () => {
       const handler = createGetImageHandler(handlerOptions);
 
@@ -481,6 +530,16 @@ describe('Handlers', () => {
 
       const data = await response.json();
       expect(data.error).toBe('Image not found');
+    });
+  });
+
+  describe('createGetImagesForEntityHandler', () => {
+    it('requires a user before listing entity images', async () => {
+      const handler = createGetImagesForEntityHandler(handlerOptions);
+      const request = new Request('http://localhost/api/images');
+      const response = await handler(request, 'post', 'post-1');
+      expect(response.status).toBe(401);
+      expect(mockCore.getImagesForEntity).not.toHaveBeenCalled();
     });
   });
 

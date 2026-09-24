@@ -29,6 +29,8 @@ pnpm exec octoload generate --output src/db/upload-schema.ts
 
 `generate` **overwrites** its output file. Review the generated schema before using it. It defines `images`, `upload_sessions`, `asset_variants`, and `image_tags`; the current upload flow writes only image rows.
 
+For Next.js or React Router, `octoload init --framework nextjs` (or `react-router`) creates the config, upload and image routes, and a shared server module. It preserves existing files when rerun. Follow its printed steps to generate the schema, export your Drizzle `db`, and connect the generated `getUploadUser` function to your session provider. Pass `--auth better-auth` if your app already exports a Better Auth instance from `src/lib/auth.ts` (Next.js) or `app/lib/auth.server.ts` (React Router); the generated session function will use it. Generated upload routes return 401 until session lookup returns a user.
+
 ## Server wiring
 
 Create a config and pass it, your Drizzle database, and the generated schema to the handlers. Here is the shape of the integration; mount the returned functions in the routes for your framework:
@@ -62,7 +64,9 @@ export const finalize = createFinalizeHandler({ config, db, schema });
 
 The framework exports `octoload/nextjs` and `octoload/react-router` provide wrappers for these handlers. Pass an options object with `config`, `db`, and `schema`; see the exported handler types for each wrapper's request signature.
 
-**Authentication and validation belong in your app.** Do not expose presign or finalize routes without enforcing your own access rules. The `limits` and hook fields exist in the config types, but the current core does not enforce file size/type limits or invoke hooks. Presigned PUT URLs expire after one hour. Configure bucket CORS to allow PUT from your application origin and the headers used for uploads.
+**Authentication and validation belong in your app.** Supply a trusted `getUser` callback (or framework wrapper callback). The handler never accepts `ownerId` from the request body. Private reads, deletion, metadata updates, and owner-scoped lists require the matching user. Finalizing an owned upload requires its owner. Set `requireAuth: true` on presign and finalize routes to require a session for every upload. Without it, only public uploads can be created anonymously. The `limits` and hook fields exist in the config types, but the current core does not enforce file size/type limits or invoke hooks. Presigned PUT URLs expire after one hour. Configure bucket CORS to allow PUT from your application origin and the headers used for uploads.
+
+If your app uses Better Auth, implement the generated session function with `auth.api.getSession({ headers: request.headers })` and return `session?.user ? { id: session.user.id } : null`. In a typical Next.js app, import `auth` from `src/lib/auth.ts`; in React Router, use `app/lib/auth.server.ts`. [Better Auth documents this server session API](https://better-auth.com/docs/basic-usage).
 
 ## Browser upload
 
@@ -83,7 +87,7 @@ The client uploads one file with a presigned PUT URL, then calls finalize. `uplo
 
 - The active server flow is **single PUT uploads**. Multipart types and client handling exist, but the core does not currently create multipart upload sessions or complete multipart uploads.
 - The schema generator emits **PostgreSQL** tables. MySQL and SQLite schemas are not implemented.
-- `octoload init` is an older scaffold and its generated routes still need manual database/schema wiring. Prefer configuring routes yourself.
+- `octoload init` creates framework routes and a fail-closed auth hook. You still connect your existing Drizzle database and session provider.
 - Variant and tag tables are schema only. Image processing, tag writes, and custom storage adapters are not implemented by the upload flow.
 - `isPublic` is metadata, not a bucket permission change. Configure public delivery yourself; private reads use signed GET URLs.
 

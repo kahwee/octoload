@@ -47,8 +47,13 @@ export function createReactRouterFinalizeHandler(
   const { getUser, ...baseOptions } = options;
   const baseHandler = createFinalizeHandler(baseOptions);
 
-  return async ({ request }: ActionFunctionArgs) => {
-    return baseHandler(request);
+  return async ({ request, params }: ActionFunctionArgs) => {
+    const user = getUser ? await getUser({ request, params }) : null;
+    return baseHandler(request, {
+      request,
+      user: user ? { ...user } : undefined,
+      params: params as Record<string, string>,
+    });
   };
 }
 

@@ -278,7 +278,7 @@ describe('Framework Adapters', () => {
         expect(response).toBeInstanceOf(Response);
       });
 
-      it('should not call getUser for finalize', async () => {
+      it('passes the current user to finalize', async () => {
         const getUser = vi.fn().mockResolvedValue({ id: 'nextjs-user-2' });
         const handler = createNextJSFinalizeHandler({
           ...mockHandlerOptions,
@@ -289,8 +289,7 @@ describe('Framework Adapters', () => {
 
         await handler(request);
 
-        // getUser is not called in finalize handler
-        expect(getUser).not.toHaveBeenCalled();
+        expect(getUser).toHaveBeenCalledWith(request);
       });
     });
 

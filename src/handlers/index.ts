@@ -25,6 +25,22 @@ export interface HandlerOptions<
   getUser?: (context: HandlerContext) => Promise<{ id: string } | null>;
 }
 
+async function resolveUser(
+  options: HandlerOptions,
+  context?: HandlerContext
+): Promise<{ id: string } | undefined> {
+  if (options.getUser) {
+    return context ? (await options.getUser(context)) || undefined : undefined;
+  }
+  return context?.user;
+}
+
+function authErrorStatus(message: string): number {
+  if (message === 'Authentication required') return 401;
+  if (message === 'Image not found' || message === 'Access denied') return 404;
+  return 400;
+}
+
 export function createPresignHandler<
   TDb extends DrizzleDB = DrizzleDB,
   TSchema extends DrizzleSchema = DrizzleSchema,
@@ -38,12 +54,8 @@ export function createPresignHandler<
   return async (request: Request, context?: HandlerContext) => {
     try {
       // Check authentication if required
+      const user = await resolveUser(options, context);
       if (options.requireAuth) {
-        let user = context?.user;
-        if (options.getUser && context) {
-          const authUser = await options.getUser(context);
-          user = authUser || undefined;
-        }
         if (!user) {
           return new Response(
             JSON.stringify({ error: 'Authentication required' }),
@@ -58,14 +70,16 @@ export function createPresignHandler<
       const body = await request.json();
       const presignRequest = body as PresignRequest;
 
-      // Get user if auth is configured
-      if (options.getUser && context) {
-        const user = await options.getUser(context);
-        if (user) {
-          presignRequest.ownerId = user.id;
-        }
-      } else if (context?.user) {
-        presignRequest.ownerId = context.user.id;
+      // Never trust an owner ID supplied in the request body.
+      presignRequest.ownerId = user?.id;
+      if (!user && !presignRequest.isPublic) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication required' }),
+          {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
       }
 
       const result = await core.presign(presignRequest);
@@ -94,12 +108,22 @@ export function createFinalizeHandler<
     options.schema
   );
 
-  return async (request: Request) => {
+  return async (request: Request, context?: HandlerContext) => {
     try {
+      const user = await resolveUser(options, context);
+      if (options.requireAuth && !user) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication required' }),
+          {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+      }
       const body = await request.json();
       const finalizeRequest = body as FinalizeRequest;
 
-      const result = await core.finalize(finalizeRequest);
+      const result = await core.finalize(finalizeRequest, user?.id);
 
       return new Response(JSON.stringify(result), {
         status: 200,
@@ -108,7 +132,7 @@ export function createFinalizeHandler<
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       return new Response(JSON.stringify({ error: message }), {
-        status: 400,
+        status: authErrorStatus(message),
         headers: { 'Content-Type': 'application/json' },
       });
     }
@@ -131,17 +155,17 @@ export function createGetImageHandler<
     context?: HandlerContext
   ) => {
     try {
-      let userId: string | undefined;
-
-      // Get user if auth is configured
-      if (options.getUser && context) {
-        const user = await options.getUser(context);
-        userId = user?.id;
-      } else if (context?.user) {
-        userId = context.user.id;
+      const user = await resolveUser(options, context);
+      if (options.requireAuth && !user) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication required' }),
+          {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
       }
-
-      const result = await core.getImage(imageId, userId);
+      const result = await core.getImage(imageId, user?.id);
 
       return new Response(JSON.stringify(result), {
         status: 200,
@@ -149,10 +173,7 @@ export function createGetImageHandler<
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      const status =
-        message === 'Image not found' || message === 'Access denied'
-          ? 404
-          : 400;
+      const status = authErrorStatus(message);
 
       return new Response(JSON.stringify({ error: message }), {
         status,
@@ -178,43 +199,22 @@ export function createDeleteImageHandler<
     context?: HandlerContext
   ) => {
     try {
-      // Check authentication if required
-      if (options.requireAuth) {
-        let user = context?.user;
-        if (options.getUser && context) {
-          const authUser = await options.getUser(context);
-          user = authUser || undefined;
-        }
-        if (!user) {
-          return new Response(
-            JSON.stringify({ error: 'Authentication required' }),
-            {
-              status: 401,
-              headers: { 'Content-Type': 'application/json' },
-            }
-          );
-        }
+      const user = await resolveUser(options, context);
+      if (!user) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication required' }),
+          {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
       }
-
-      let userId: string | undefined;
-
-      // Get user if auth is configured
-      if (options.getUser && context) {
-        const user = await options.getUser(context);
-        userId = user?.id;
-      } else if (context?.user) {
-        userId = context.user.id;
-      }
-
-      await core.deleteImage(imageId, userId);
+      await core.deleteImage(imageId, user.id);
 
       return new Response(null, { status: 204 });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      const status =
-        message === 'Image not found' || message === 'Access denied'
-          ? 404
-          : 400;
+      const status = authErrorStatus(message);
 
       return new Response(JSON.stringify({ error: message }), {
         status,
@@ -241,20 +241,21 @@ export function createGetImagesForEntityHandler<
     context?: HandlerContext
   ) => {
     try {
-      let ownerId: string | undefined;
-
-      // Get user if auth is configured
-      if (options.getUser && context) {
-        const user = await options.getUser(context);
-        ownerId = user?.id;
-      } else if (context?.user) {
-        ownerId = context.user.id;
+      const user = await resolveUser(options, context);
+      if (!user) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication required' }),
+          {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
       }
 
       const result = await core.getImagesForEntity(
         entityType,
         entityId,
-        ownerId
+        user.id
       );
 
       return new Response(JSON.stringify(result), {
@@ -264,7 +265,7 @@ export function createGetImagesForEntityHandler<
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       return new Response(JSON.stringify({ error: message }), {
-        status: 400,
+        status: authErrorStatus(message),
         headers: { 'Content-Type': 'application/json' },
       });
     }

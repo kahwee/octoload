@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import { Command } from 'commander';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Command } from 'commander';
 import { addAdapterCommand } from './commands/add-adapter.js';
 import { generateCommand } from './commands/generate.js';
 import { initCommand } from './commands/init.js';
@@ -38,6 +38,7 @@ program
     'Framework: nextjs or react-router',
     'nextjs'
   )
+  .option('--auth <provider>', 'Auth: custom or better-auth', 'custom')
   .action(initCommand);
 
 program

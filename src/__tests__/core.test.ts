@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  OctoloadCore,
   type DrizzleDB,
   type DrizzleSchema,
+  OctoloadCore,
 } from '../handlers/core.js';
 import { S3StorageAdapter } from '../storage/s3-adapter.js';
 import { generateServerUUID } from '../utils/uuid.js';
@@ -13,6 +13,9 @@ vi.mock('../storage/s3-adapter.js', () => ({
       getPresignedPutUrl: vi
         .fn()
         .mockResolvedValue({ url: 'https://storage.test/upload' }),
+      getPrivateUrl: vi.fn().mockResolvedValue('https://storage.test/private'),
+      objectExists: vi.fn().mockResolvedValue(true),
+      deleteObject: vi.fn(),
     };
   }),
 }));
@@ -55,6 +58,7 @@ describe('OctoloadCore.presign', () => {
       filename: 'photo.jpg',
       contentType: 'image/jpeg',
       byteSize: 100,
+      isPublic: true,
     };
 
     const first = await core.presign(request);
@@ -74,5 +78,89 @@ describe('OctoloadCore.presign', () => {
     expect(
       vi.mocked(S3StorageAdapter).mock.results[0].value.getPresignedPutUrl
     ).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('OctoloadCore image access', () => {
+  const image = {
+    id: 'image-1',
+    ownerId: 'owner-1',
+    isPublic: false,
+    storageKey: 'uploads/image-1.jpg',
+  };
+
+  function makeCore(record = image) {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({ limit: async () => [record] }),
+        }),
+      }),
+    } as unknown as DrizzleDB;
+    const schema = {
+      images: { id: 'id', ownerId: 'ownerId' },
+    } as unknown as DrizzleSchema;
+    return new OctoloadCore(
+      {
+        adapter: 's3',
+        bucket: 'images',
+        region: 'us-east-1',
+        credentials: { accessKeyId: 'key', secretAccessKey: 'secret' },
+      },
+      db,
+      schema
+    );
+  }
+
+  it('requires an owner before signing a private read', async () => {
+    const core = makeCore();
+    await expect(core.getImage(image.id)).rejects.toThrow(
+      'Authentication required'
+    );
+    await expect(core.getImage(image.id, 'other-user')).rejects.toThrow(
+      'Access denied'
+    );
+    await expect(core.getImage(image.id, image.ownerId)).resolves.toMatchObject(
+      {
+        url: 'https://storage.test/private',
+      }
+    );
+  });
+
+  it('allows anonymous reads of public images', async () => {
+    const core = makeCore({ ...image, isPublic: true });
+    await expect(core.getImage(image.id)).resolves.toMatchObject({
+      image: { id: image.id },
+    });
+  });
+
+  it('requires an owner before deleting an image', async () => {
+    const core = makeCore();
+    await expect(core.deleteImage(image.id)).rejects.toThrow(
+      'Authentication required'
+    );
+    await expect(core.deleteImage(image.id, 'other-user')).rejects.toThrow(
+      'Access denied'
+    );
+  });
+
+  it('requires the upload owner before finalizing', async () => {
+    const core = makeCore();
+    await expect(
+      core.finalize({ storageKey: image.storageKey })
+    ).rejects.toThrow('Authentication required');
+    await expect(
+      core.finalize({ storageKey: image.storageKey }, 'other-user')
+    ).rejects.toThrow('Access denied');
+  });
+
+  it('requires the owner before changing metadata', async () => {
+    const core = makeCore();
+    await expect(
+      core.updateImageMetadata(image.id, { alt: 'new' })
+    ).rejects.toThrow('Authentication required');
+    await expect(
+      core.updateImageMetadata(image.id, { alt: 'new' }, 'other-user')
+    ).rejects.toThrow('Access denied');
   });
 });

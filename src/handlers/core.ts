@@ -1,5 +1,10 @@
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
+// Import proper Drizzle types and functions
+import { and, eq } from 'drizzle-orm';
+import type { PgDatabase } from 'drizzle-orm/pg-core';
 import { S3StorageAdapter } from '../storage/s3-adapter.js';
+// Import the actual schema types from our template
+import type { NewImage, UploadSchema } from '../templates/upload-schema.js';
 import type {
   FinalizeRequest,
   ImageRecord,
@@ -9,40 +14,12 @@ import type {
 } from '../types/index.js';
 import { generateServerUUID } from '../utils/uuid.js';
 
-// Import proper Drizzle types and functions
-import { and, eq } from 'drizzle-orm';
-
-// Import the actual schema types from our template
-import type { NewImage, UploadSchema } from '../templates/upload-schema.js';
-
-// Improved Drizzle database typing - use a more flexible type that captures common operations
-export type DrizzleDB = {
-  insert: (table: unknown) => {
-    values: (values: unknown) => {
-      returning: () => Promise<unknown[]>;
-    };
-  };
-  select: (fields?: unknown) => {
-    from: (table: unknown) => {
-      where: (condition: unknown) => {
-        limit: (limit: number) => Promise<unknown[]>;
-        orderBy: (column: unknown) => Promise<unknown[]>;
-      };
-      orderBy: (column: unknown) => Promise<unknown[]>;
-    };
-  };
-  update: (table: unknown) => {
-    set: (values: unknown) => {
-      where: (condition: unknown) => {
-        returning: () => Promise<unknown[]>;
-      };
-    };
-  };
-  delete: (table: unknown) => {
-    where: (condition: unknown) => Promise<void>;
-  };
-  query: Record<string, unknown>;
-} & Record<string, unknown>;
+// Match PostgreSQL Drizzle instances without requiring a particular driver.
+export type DrizzleDB = Pick<
+  // biome-ignore lint/suspicious/noExplicitAny: Drizzle's database generics vary by driver and schema.
+  PgDatabase<any, any, any>,
+  'insert' | 'select' | 'update' | 'delete'
+>;
 
 // Use the proper schema type from our template, but allow flexible structure for testing
 export type DrizzleSchema =
@@ -98,6 +75,9 @@ export class OctoloadCore<
    * Generate presigned URL for file upload with hash-based storage key
    */
   async presign(request: PresignRequest): Promise<PresignResponse> {
+    if (!request.ownerId && !request.isPublic) {
+      throw new Error('Authentication required');
+    }
     // Include the record ID so uploads with identical metadata in the same
     // millisecond cannot overwrite one another in storage.
     const imageId = generateServerUUID();
@@ -158,7 +138,10 @@ export class OctoloadCore<
   /**
    * Finalize upload by updating image status to 'ready'
    */
-  async finalize(request: FinalizeRequest): Promise<ImageRecord> {
+  async finalize(
+    request: FinalizeRequest,
+    userId?: string
+  ): Promise<ImageRecord> {
     // Find image by storage key
     const cols = this.getImageColumns();
     const results = await this.db
@@ -170,6 +153,13 @@ export class OctoloadCore<
 
     if (!image) {
       throw new Error('Image record not found for storage key');
+    }
+
+    if (image.ownerId && !userId) {
+      throw new Error('Authentication required');
+    }
+    if (image.ownerId && image.ownerId !== userId) {
+      throw new Error('Access denied');
     }
 
     // Verify upload exists in storage
@@ -217,9 +207,12 @@ export class OctoloadCore<
       throw new Error('Image not found');
     }
 
-    // Check ownership if userId provided
-    if (userId && image.ownerId !== userId) {
-      throw new Error('Unauthorized access to image');
+    // Public images are readable by anyone. Private images require their owner.
+    if (!image.isPublic && !userId) {
+      throw new Error('Authentication required');
+    }
+    if (!image.isPublic && image.ownerId !== userId) {
+      throw new Error('Access denied');
     }
 
     // Generate download URL
@@ -247,9 +240,11 @@ export class OctoloadCore<
       throw new Error('Image not found');
     }
 
-    // Check ownership if userId provided
-    if (userId && image.ownerId !== userId) {
-      throw new Error('Unauthorized access to image');
+    if (!userId) {
+      throw new Error('Authentication required');
+    }
+    if (image.ownerId !== userId) {
+      throw new Error('Access denied');
     }
 
     // Delete from storage
@@ -267,7 +262,7 @@ export class OctoloadCore<
   async getImagesForEntity(
     entityType: string,
     entityId: string,
-    ownerId?: string
+    ownerId: string
   ): Promise<ImageRecord[]> {
     const cols = this.getImageColumns();
     const conditions = [
@@ -276,9 +271,10 @@ export class OctoloadCore<
       this.eq(cols.status, 'ready'),
     ];
 
-    if (ownerId) {
-      conditions.push(this.eq(cols.ownerId, ownerId));
+    if (!ownerId) {
+      throw new Error('Authentication required');
     }
+    conditions.push(this.eq(cols.ownerId, ownerId));
 
     const results = await this.db
       .select()
@@ -324,8 +320,11 @@ export class OctoloadCore<
       throw new Error('Image not found');
     }
 
-    if (userId && image.ownerId !== userId) {
-      throw new Error('Unauthorized access to image');
+    if (!userId) {
+      throw new Error('Authentication required');
+    }
+    if (image.ownerId !== userId) {
+      throw new Error('Access denied');
     }
 
     // Update metadata
