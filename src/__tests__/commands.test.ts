@@ -11,7 +11,9 @@ vi.mock('fs', () => ({
 
 // Mock path functions
 vi.mock('path', () => ({
-  join: vi.fn((...args) => args.join('/')),
+  resolve: vi.fn((cwd: string, output: string) =>
+    output.startsWith('/') ? output : `${cwd}/${output}`
+  ),
   dirname: vi.fn((path) => path.split('/').slice(0, -1).join('/')),
 }));
 
@@ -95,7 +97,7 @@ describe('Commands', () => {
 
       expect(generatedContent).toContain("from 'drizzle-orm/pg-core'");
       expect(generatedContent).toContain(
-        "import { generateUUID } from '../utils/uuid.js'"
+        "import { randomUUID } from 'node:crypto'"
       );
     });
   });

@@ -8,7 +8,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
-import { generateUUID } from '../utils/uuid.js';
+import { randomUUID } from 'node:crypto';
 
 // Re-export types from drizzle for convenience
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
@@ -38,7 +38,7 @@ export type AssetVariant = (typeof assetVariantEnum.enumValues)[number];
 export const images = pgTable('images', {
   id: uuid('id')
     .primaryKey()
-    .$defaultFn(() => generateUUID()),
+    .$defaultFn(() => randomUUID()),
   ownerId: uuid('owner_id'), // nullable for public uploads
   orgId: uuid('org_id'), // nullable for personal uploads
   entityType: varchar('entity_type', { length: 50 }), // e.g., 'appliance', 'recipe', 'user'
@@ -61,7 +61,7 @@ export const images = pgTable('images', {
 export const uploadSessions = pgTable('upload_sessions', {
   id: uuid('id')
     .primaryKey()
-    .$defaultFn(() => generateUUID()),
+    .$defaultFn(() => randomUUID()),
   imageId: uuid('image_id').references(() => images.id, {
     onDelete: 'cascade',
   }),
@@ -75,7 +75,7 @@ export const uploadSessions = pgTable('upload_sessions', {
 export const assetVariants = pgTable('asset_variants', {
   id: uuid('id')
     .primaryKey()
-    .$defaultFn(() => generateUUID()),
+    .$defaultFn(() => randomUUID()),
   imageId: uuid('image_id')
     .notNull()
     .references(() => images.id, { onDelete: 'cascade' }),
@@ -92,7 +92,7 @@ export const assetVariants = pgTable('asset_variants', {
 export const imageTags = pgTable('image_tags', {
   id: uuid('id')
     .primaryKey()
-    .$defaultFn(() => generateUUID()),
+    .$defaultFn(() => randomUUID()),
   imageId: uuid('image_id')
     .notNull()
     .references(() => images.id, { onDelete: 'cascade' }),

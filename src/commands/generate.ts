@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from 'fs';
-import { dirname, join } from 'path';
+import { dirname, resolve } from 'path';
 import { getUploadSchemaTemplate } from '../templates/schema-template.js';
 
 interface GenerateOptions {
@@ -10,7 +10,7 @@ export async function generateCommand(options: GenerateOptions) {
   console.log('📝 Generating Drizzle schemas...');
 
   const cwd = process.cwd();
-  const outputPath = join(cwd, options.output);
+  const outputPath = resolve(cwd, options.output);
 
   // Ensure output directory exists
   mkdirSync(dirname(outputPath), { recursive: true });
@@ -19,7 +19,5 @@ export async function generateCommand(options: GenerateOptions) {
   writeFileSync(outputPath, schemaContent);
 
   console.log(`✅ Generated schema at: ${options.output}`);
-  console.log(
-    '\\nNext step: Run pnpm dlx octoload migrate to generate migrations'
-  );
+  console.log('\nNext step: Add the schema to Drizzle and apply migrations.');
 }

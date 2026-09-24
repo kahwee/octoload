@@ -15,8 +15,8 @@ export async function addAdapterCommand(adapter: 's3' | 'r2') {
   updateConfig(cwd, adapter);
 
   console.log(`✅ ${adapter.toUpperCase()} adapter added successfully!`);
-  console.log('\\nNext steps:');
-  console.log('1. Install dependencies: bun install');
+  console.log('\nNext steps:');
+  console.log('1. Install dependencies: pnpm install');
   console.log('2. Update your .env file with the new variables');
   console.log('3. Update your octoload config to use the new adapter');
 }
@@ -50,7 +50,7 @@ function updateEnvExample(cwd: string, adapter: string) {
 ${prefix}_BUCKET=your-bucket-name
 ${prefix}_REGION=us-east-1
 ${prefix}_ACCESS_KEY_ID=your-access-key
-${prefix}_SECRET_ACCESS_KEY=your-secret-key${adapter === 'r2' ? '\\nR2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com' : ''}
+${prefix}_SECRET_ACCESS_KEY=your-secret-key${adapter === 'r2' ? '\nR2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com' : ''}
 `;
 
   if (existsSync(envPath)) {
