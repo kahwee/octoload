@@ -99,6 +99,7 @@ pnpm test
 pnpm run typecheck
 pnpm run lint
 pnpm run build
+pnpm run test:package
 ```
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution steps. Licensed under [MIT](./LICENSE).

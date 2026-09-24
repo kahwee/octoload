@@ -98,9 +98,9 @@ describe('Integration Tests', () => {
     }, 15000);
 
     it('should handle multipart upload workflow', async () => {
-      const largeFileSize = 100 * 1024 * 1024; // 100MB
+      // The mocked presign response chooses multipart; no large allocation is needed.
       const mockLargeFile = new File(
-        ['x'.repeat(largeFileSize)],
+        ['part-one', 'part-two'],
         'large-file.mp4',
         {
           type: 'video/mp4',

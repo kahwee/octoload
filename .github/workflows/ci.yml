@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -9,6 +12,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         node-version: [22, 24]
@@ -45,14 +49,16 @@ jobs:
       - name: Run tests with coverage
         run: pnpm exec vitest run --coverage
 
+      - name: Build
+        run: pnpm run build
+
+      - name: Smoke test built package and CLI
+        run: pnpm run test:package
+
       - name: Upload coverage reports to Codecov
+        if: matrix.node-version == 24
+        continue-on-error: true
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: kahwee/octoload
-
-      - name: Build
-        run: pnpm run build
-
-      - name: Test CLI
-        run: node dist/cli.js --help
