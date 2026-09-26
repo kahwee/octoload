@@ -10,7 +10,7 @@ Thank you for your interest in contributing to Octoload! We welcome contribution
    cd octoload
    ```
 
-2. **Install dependencies:**
+2. **Install dependencies** with the pnpm version pinned in `package.json`:
    ```bash
    pnpm install
    ```
@@ -48,6 +48,11 @@ pnpm run test:package
 # Full verification (before submitting PR)
 pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:docs && pnpm run test:coverage && pnpm run build && pnpm run test:package
 ```
+
+For dependency maintenance, run `pnpm update --latest`, review the manifest and
+lockfile diff, then run `pnpm install --frozen-lockfile` and the full verification
+command above. Dependabot tracks GitHub Actions; pnpm package updates are
+maintained in the repository.
 
 ## Contribution Guidelines
 

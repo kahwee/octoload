@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import ts from 'typescript';
+import ts from '@typescript/typescript6';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const readme = readFileSync(join(root, 'README.md'), 'utf8');
