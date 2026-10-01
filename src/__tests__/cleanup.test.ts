@@ -138,7 +138,7 @@ describe.each(['s3', 'r2'] as const)(
       const row = image('failed');
       const { core } = makeCore(provider, row);
       await expect(
-        core.finalize({ storageKey: row.storageKey }, row.ownerId)
+        core.finalize({ storageKey: row.storageKey }, row.ownerId ?? undefined)
       ).rejects.toThrow('Upload is no longer processing');
       expect(storage.headObject).not.toHaveBeenCalled();
     });
@@ -147,7 +147,7 @@ describe.each(['s3', 'r2'] as const)(
       const row = image();
       const { core } = makeCore(provider, row, { loseClaim: true });
       await expect(
-        core.finalize({ storageKey: row.storageKey }, row.ownerId)
+        core.finalize({ storageKey: row.storageKey }, row.ownerId ?? undefined)
       ).rejects.toThrow('Upload is no longer processing');
       expect(storage.headObject).toHaveBeenCalledWith(row.storageKey);
     });
@@ -157,7 +157,7 @@ describe.each(['s3', 'r2'] as const)(
       const { core } = makeCore(provider, row);
       const finalized = await core.finalize(
         { storageKey: row.storageKey },
-        row.ownerId
+        row.ownerId ?? undefined
       );
       expect(finalized.status).toBe('ready');
       expect(finalized.publicUrl).toBeNull();
@@ -171,14 +171,14 @@ describe.each(['s3', 'r2'] as const)(
         ContentType: 'image/jpeg',
       });
       await expect(
-        core.finalize({ storageKey: row.storageKey }, row.ownerId)
+        core.finalize({ storageKey: row.storageKey }, row.ownerId ?? undefined)
       ).rejects.toThrow('file size does not match');
       storage.headObject.mockResolvedValueOnce({
         ContentLength: 10,
         ContentType: 'image/png',
       });
       await expect(
-        core.finalize({ storageKey: row.storageKey }, row.ownerId)
+        core.finalize({ storageKey: row.storageKey }, row.ownerId ?? undefined)
       ).rejects.toThrow('content type does not match');
       expect(rows[0]?.status).toBe('processing');
     });
@@ -193,7 +193,7 @@ describe.each(['s3', 'r2'] as const)(
         })
       );
       await expect(
-        core.finalize({ storageKey: row.storageKey }, row.ownerId)
+        core.finalize({ storageKey: row.storageKey }, row.ownerId ?? undefined)
       ).rejects.toThrow('file not found in storage');
       expect(rows[0]?.status).toBe('processing');
     });

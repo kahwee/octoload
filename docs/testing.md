@@ -88,3 +88,23 @@ does not revoke its signed PUT URL: it can recreate that key until expiry.
 Applications needing revocation should retain a key/tombstone through expiry or
 use a server-controlled upload path. The harness does not claim to solve this
 provider limitation or validate image bytes.
+
+## Runtime coverage
+
+Node.js 24+ is the documented runtime. Bun is not required. Development and
+release builds use the exact pnpm version in `package.json` and its lockfile.
+
+The credential-free example and packed-package smoke can also be run under Bun:
+
+```sh
+pnpm run build
+bun examples/presign.mjs
+bun scripts/smoke-built.js
+```
+
+These commands passed with Bun 1.4.2 on 2026-10-01 after a Node 24.19.0 build.
+Keep `pnpm` on PATH for the smoke test's pack step. This verifies Bun package
+imports, CLI scaffolding, and local S3/R2 signing only. It does not establish
+Bun-hosted Next.js/React Router, PostgreSQL driver, browser upload, or live bucket
+compatibility. The browser upload client uses `XMLHttpRequest` and Web Crypto;
+Node/Bun server scripts do not provide its full browser environment.

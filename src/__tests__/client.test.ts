@@ -108,6 +108,46 @@ describe('OctoloadClient', () => {
       expect(xhr.send).toHaveBeenCalledWith(mockFile);
     }, 10000); // Increase timeout
 
+    it('accepts nullable PostgreSQL metadata after finalizing a private upload', async () => {
+      const image = {
+        id: 'image-private',
+        ownerId: 'user-123',
+        orgId: null,
+        entityType: null,
+        entityId: null,
+        filename: 'test.jpg',
+        contentType: 'image/jpeg',
+        byteSize: 4,
+        status: 'ready',
+        storageKey: 'uploads/test.jpg',
+        publicUrl: null,
+        checksum: null,
+        alt: null,
+        title: null,
+        isPublic: false,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      };
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          storageKey: image.storageKey,
+          uploadUrl: 'https://storage.example.test/upload',
+          expiresAt: new Date(),
+        }),
+      });
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => image });
+
+      const result = await client.uploadFile(
+        new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+      );
+      expect(result.image).toMatchObject({
+        ...image,
+        createdAt: expect.any(Date),
+        updatedAt: expect.any(Date),
+      });
+    });
+
     it('should handle presign request correctly', async () => {
       const mockFile = new File(['test content'], 'test.jpg', {
         type: 'image/jpeg',
@@ -168,6 +208,43 @@ describe('OctoloadClient', () => {
   });
 
   describe('getImage', () => {
+    it('accepts null metadata when reading an anonymous public image', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          image: {
+            id: 'image-public',
+            ownerId: null,
+            orgId: null,
+            alt: null,
+            title: null,
+            checksum: null,
+            entityId: null,
+            entityType: null,
+            publicUrl: 'https://images.example.test/photo.jpg',
+          },
+          url: 'https://images.example.test/photo.jpg',
+        }),
+      });
+      const result = await client.getImage('image-public');
+      expect(result.image.ownerId).toBeNull();
+      expect(result.image.alt).toBeNull();
+      expect(result.url).toBe('https://images.example.test/photo.jpg');
+    });
+
+    it('still rejects incorrectly typed nullable metadata', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          image: { id: 'image-invalid', alt: 123 },
+          url: 'https://images.example.test/photo.jpg',
+        }),
+      });
+      await expect(client.getImage('image-invalid')).rejects.toThrow(
+        'Invalid image response format'
+      );
+    });
+
     it('should retrieve image successfully', async () => {
       const mockImageResponse = {
         image: { id: 'img-123', filename: 'test.jpg' },

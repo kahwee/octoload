@@ -103,19 +103,19 @@ export interface PresignContext extends PresignRequest {
 // Database record types
 export interface ImageRecord {
   id: string;
-  ownerId?: string;
-  orgId?: string;
-  entityType?: string; // e.g., 'appliance', 'recipe', 'user'
-  entityId?: string; // UUID of the associated entity
+  ownerId?: string | null;
+  orgId?: string | null;
+  entityType?: string | null; // e.g., 'appliance', 'recipe', 'user'
+  entityId?: string | null; // UUID of the associated entity
   filename: string;
   contentType: string;
   byteSize: number;
   status: 'processing' | 'ready' | 'failed';
   storageKey: string;
-  publicUrl?: string;
-  checksum?: string;
-  alt?: string;
-  title?: string;
+  publicUrl?: string | null;
+  checksum?: string | null;
+  alt?: string | null;
+  title?: string | null;
   isPublic: boolean;
   createdAt: Date;
   updatedAt: Date;

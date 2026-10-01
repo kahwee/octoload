@@ -2,7 +2,7 @@
   "name": "octoload",
   "version": "0.1.9",
   "type": "module",
-  "description": "Minimal, composable image upload system with CLI for generating Drizzle schemas and typed clients",
+  "description": "Browser-to-S3/R2 single-PUT image uploads with PostgreSQL metadata and Next.js/React Router scaffolds",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -53,7 +53,8 @@
     "lint:fix": "biome lint --write .",
     "typecheck": "tsc",
     "update-all-package": "pnpm update --latest",
-    "prepublishOnly": "pnpm run typecheck && pnpm run lint && pnpm run build"
+    "prepublishOnly": "pnpm run typecheck && pnpm run lint && pnpm run build",
+    "example:presign": "node examples/presign.mjs"
   },
   "keywords": [
     "image",
@@ -69,7 +70,6 @@
     "nextjs",
     "file-upload",
     "direct-upload",
-    "multipart",
     "storage"
   ],
   "author": "KahWee Teng <tengkahwee@gmail.com>",
@@ -117,9 +117,12 @@
   },
   "files": [
     "dist/**/*",
-    "templates/**/*",
+    "!dist/__tests__/**",
+    "docs/**/*.md",
+    "examples/**/*",
     "README.md",
     "LICENSE",
-    "CONTRIBUTING.md"
+    "CONTRIBUTING.md",
+    "CHANGELOG.md"
   ]
 }

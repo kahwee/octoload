@@ -4,12 +4,29 @@ Upload images straight from your browser to **Amazon S3 or Cloudflare R2**.
 Octoload connects a lightweight browser client to your app’s authentication,
 PostgreSQL metadata, and framework handlers. You own the storage and the data.
 
-## Install
+## Release status and install
 
-Use Node.js 24+ in an existing Next.js app with PostgreSQL, Drizzle, and Better Auth:
+**This checkout is 0.1.9, unreleased.** The npm `latest` version is still 0.1.8
+(checked 2026-10-01). Its README and generated scaffolds do not match this guide,
+and it does not include the upload-hardening changes below. Pushing to GitHub
+does not publish a new npm package. See the [release checklist](https://github.com/kahwee/octoload/blob/main/docs/releasing.md).
+
+Use Node.js 24+. **Bun is not required.** PostgreSQL is the supported database;
+MySQL and SQLite are not supported. To try this checkout before an npm release,
+build a local package with the pnpm version pinned in `package.json`:
 
 ```bash
-pnpm add octoload drizzle-orm pg
+git clone https://github.com/kahwee/octoload.git
+cd octoload
+pnpm install --frozen-lockfile
+pnpm run build
+pnpm pack --out /tmp/octoload-0.1.9.tgz
+```
+
+In your existing Next.js app with PostgreSQL, Drizzle, and Better Auth:
+
+```bash
+pnpm add /tmp/octoload-0.1.9.tgz drizzle-orm pg
 pnpm add -D drizzle-kit @types/pg
 pnpm exec octoload init --framework nextjs --adapter s3 --auth better-auth
 pnpm exec octoload generate --output src/db/upload-schema.ts
@@ -17,7 +34,7 @@ pnpm exec octoload generate --output src/db/upload-schema.ts
 
 The scaffold creates authenticated upload and image routes. Connect your database,
 fill in the server environment, and apply the generated schema using the
-[Next.js setup guide](docs/nextjs.md). `init` preserves existing files;
+[Next.js setup guide](https://github.com/kahwee/octoload/blob/main/docs/nextjs.md). `init` preserves existing files;
 `generate` replaces its output file.
 
 ## Upload an image
@@ -118,30 +135,37 @@ with yours and add your local development origin if needed:
 ]
 ```
 
-The [setup guide](docs/nextjs.md) covers environment variables, migrations, and
-session wiring. Other guides cover [Cloudflare R2](docs/integrations.md#cloudflare-r2-variant),
-[React Router](docs/integrations.md#react-router-variant), and
-[scheduled cleanup](docs/integrations.md#scheduled-cleanup).
+The [setup guide](https://github.com/kahwee/octoload/blob/main/docs/nextjs.md) covers environment variables, migrations, and
+session wiring. Other guides cover [Cloudflare R2](https://github.com/kahwee/octoload/blob/main/docs/integrations.md#cloudflare-r2-variant),
+[React Router](https://github.com/kahwee/octoload/blob/main/docs/integrations.md#react-router-variant), and
+[scheduled cleanup](https://github.com/kahwee/octoload/blob/main/docs/integrations.md#scheduled-cleanup).
 
 The scaffold allows JPEG, PNG, WebP, and GIF up to 10 MiB. The core flow supports
 single PUT uploads and checks object metadata. Image-byte validation, checksum
 verification, and server multipart workflows are not yet implemented. See
-[limits and access](docs/integrations.md#limits-access-and-current-scope) for
+[limits and access](https://github.com/kahwee/octoload/blob/main/docs/integrations.md#limits-access-and-current-scope) for
 storage visibility and application authorization requirements.
+
+## Try a credential-free example
+
+After building the checkout, run `pnpm run example:presign`. It uses dummy
+credentials to show signed single-PUT headers for S3 and R2, without a bucket,
+database, or network request. It is a signing example, not an end-to-end upload.
+See [the example](https://github.com/kahwee/octoload/blob/main/examples/README.md).
 
 ## Develop
 
-Use Node 24+ and the pnpm version pinned in [package.json](package.json):
+Use Node 24+ and the pnpm version pinned in [package.json](https://github.com/kahwee/octoload/blob/main/package.json):
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm run test:docs
 ```
 
-CI runs type, lint, format, coverage, documentation, and built package checks.
-The [contribution guide](CONTRIBUTING.md) lists the full verification command.
-The [storage harnesses](docs/testing.md) check private R2 storage with Cloudflare
+CI runs type, lint, format, coverage, documentation, and packed-package checks.
+The [contribution guide](https://github.com/kahwee/octoload/blob/main/CONTRIBUTING.md) lists the full verification command.
+The [storage harnesses](https://github.com/kahwee/octoload/blob/main/docs/testing.md) check private R2 storage with Cloudflare
 `cf`, and signed uploads and replay protection with dedicated S3/R2 credentials.
 Bucket uploads and database migrations need a configured integration environment.
 
-[MIT license](LICENSE).
+[MIT license](https://github.com/kahwee/octoload/blob/main/LICENSE).

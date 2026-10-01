@@ -44,7 +44,7 @@ pnpm run test:coverage
 # Check the README's TypeScript and JSON examples
 pnpm run test:docs
 
-# Check built package exports and generated scaffolds (after build)
+# Pack and check consumer exports, guides, CLI, and scaffolds (after build)
 pnpm run test:package
 
 # Check storage harness locally without credentials (after build)
@@ -74,10 +74,14 @@ when public behavior changes.
 The CLI and generated templates must agree: `src/commands/init.ts` generates
 framework scaffolds, and `src/templates/upload-schema.ts` supplies the schema. The build
 regenerates `schema-template.ts` from that source. Package smoke tests
-exercise the built exports and generated scaffolds. `test:docs` parses README
+exercise the packed exports and generated scaffolds from a temporary consumer,
+including the CLI version and credential-free signing example. `test:docs` parses README
 TypeScript/JSON examples and typechecks the browser component; it does not run
 bucket uploads or database migrations.
 
 Use a focused branch from `main` and describe the behavior and actual checks in
 your pull request. Bug reports should include runtime versions, a minimal
 reproduction, expected behavior, and the error output.
+
+Release preparation and the separate npm publication gate are documented in the
+[release checklist](docs/releasing.md). Publishing requires explicit approval.
