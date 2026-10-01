@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 — Release candidate
+## 0.2.0 — 2026-10-01
 
 - Add SQLite schemas and database support alongside PostgreSQL; PostgreSQL remains the CLI default.
 - Add `--dialect sqlite` scaffolding, runnable database examples, and a database release checklist.

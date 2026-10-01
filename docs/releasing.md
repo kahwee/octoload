@@ -2,6 +2,11 @@
 
 ## 0.2.0 release scope
 
+**0.2.0 was published on 2026-10-01 and verified as npm `latest`.** The registry
+tarball matched the reviewed artifact byte-for-byte, and a fresh Node 24 consumer
+installed it and passed ESM/CJS imports, CLI version and both dialect scaffolds.
+The GitHub release is [v0.2.0](https://github.com/kahwee/octoload/releases/tag/v0.2.0).
+
 0.2.0 adds SQLite alongside PostgreSQL and includes the earlier upload hardening.
 The source and release artifact are verified separately from npm publication.
 Mark the changelog released only after the registry confirms success.
@@ -30,6 +35,11 @@ work. See [accepted tradeoffs](#accepted-scope-and-future-work).
    account's normal npm authentication flow; never put credentials in the repo.
 6. After publication, verify the npm version/dist-tag, downloaded tarball,
    rendered README, package exports, and CLI version. Verify the install instructions match the published version.
+
+A successful publish can precede install availability while npm runs its
+[publish-time scan](https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/).
+Wait for the version and tarball to appear, verify integrity, and then finalize
+release status. Do not retry publication merely because the first read is 404.
 
 ## Repository About text
 
