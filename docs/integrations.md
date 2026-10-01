@@ -1,6 +1,6 @@
 # Storage, framework, and cleanup guides
 
-Start with the [Next.js quick start](../README.md#quick-start-nextjs-with-better-auth).
+Start with the [Next.js setup guide](nextjs.md).
 The same upload lifecycle applies to S3 and R2.
 
 ## Cloudflare R2 variant
@@ -25,7 +25,7 @@ R2_PUBLIC_BASE_URL=
 
 The R2 API endpoint signs uploads; it is not a public image URL. Private uploads work with an empty `R2_PUBLIC_BASE_URL` and use signed GET URLs. To upload public images, enable public access on the bucket and set `R2_PUBLIC_BASE_URL` to its custom domain, such as `https://images.example.com`, or its enabled `r2.dev` URL. Octoload rejects public R2 uploads without that value before creating an image row. Cloudflare recommends a custom domain for production public delivery; see [R2 public buckets](https://developers.cloudflare.com/r2/buckets/public-buckets/) and its [S3 SDK configuration](https://developers.cloudflare.com/r2/examples/aws/aws-sdk-js-v3/).
 
-For an S3 bucket served through your own CDN, set `storage.publicBaseUrl` in the generated `config.ts` too. The scaffold does not enable public bucket access for either provider. `isPublic` is metadata, not a bucket permission change.
+For an S3 bucket served through your own CDN, set `storage.publicBaseUrl` in the generated `config.ts` too. The scaffold does not enable public bucket access for either provider. `isPublic` is metadata, not a bucket permission change. Use separate buckets and configurations for public and private uploads; keep private objects off publicly readable buckets and domains.
 
 ## React Router variant
 
