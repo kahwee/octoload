@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Update the AWS S3 client and request presigner to 3.1143.0 and the Next.js development dependency to 16.3.7; refresh compatible transitive dependencies.
+
 ## 0.2.1 — 2026-10-01
 
 - Add explicit `init --driver pglite` scaffolding with persistent storage, migrations, native environment loading and local database ignores.
