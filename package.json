@@ -1,0 +1,122 @@
+{
+  "name": "octoload",
+  "version": "0.1.8",
+  "type": "module",
+  "description": "Minimal, composable image upload system with CLI for generating Drizzle schemas and typed clients",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "octoload": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.js",
+      "require": "./dist/client/index.js"
+    },
+    "./react-router": {
+      "types": "./dist/adapters/react-router.d.ts",
+      "import": "./dist/adapters/react-router.js",
+      "require": "./dist/adapters/react-router.js"
+    },
+    "./nextjs": {
+      "types": "./dist/adapters/nextjs.d.ts",
+      "import": "./dist/adapters/nextjs.js",
+      "require": "./dist/adapters/nextjs.js"
+    }
+  },
+  "scripts": {
+    "build": "pnpm run build:clean && pnpm run build:generate-templates && pnpm run build:compile",
+    "build:clean": "rm -rf dist",
+    "build:generate-templates": "node scripts/generate-template.js",
+    "build:compile": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:package": "node scripts/smoke-built.js",
+    "test:docs": "node scripts/check-readme.js",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "coverage": "vitest run --coverage",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "fix": "biome check --write .",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
+    "typecheck": "tsc",
+    "update-all-package": "pnpm update --latest",
+    "prepublishOnly": "pnpm run typecheck && pnpm run lint && pnpm run build"
+  },
+  "keywords": [
+    "image",
+    "upload",
+    "drizzle",
+    "s3",
+    "r2",
+    "cloudflare",
+    "presigned-url",
+    "typescript",
+    "cli",
+    "react-router",
+    "nextjs",
+    "file-upload",
+    "direct-upload",
+    "multipart",
+    "storage"
+  ],
+  "author": "KahWee Teng <tengkahwee@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/kahwee/octoload#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kahwee/octoload.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kahwee/octoload/issues"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "pnpm@12.5.1",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.5.1",
+      "onFail": "error"
+    }
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1142.0",
+    "@aws-sdk/s3-request-presigner": "^3.1142.0",
+    "commander": "^15.0.0",
+    "drizzle-orm": "^0.45.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@typescript/typescript6": "6.0.2",
+    "@vitest/coverage-v8": "^5.0.2",
+    "drizzle-kit": "^0.31.11",
+    "next": "^16.3.6",
+    "react-router": "^8.4.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2"
+  },
+  "peerDependencies": {
+    "drizzle-orm": "^0.45.2"
+  },
+  "files": [
+    "dist/**/*",
+    "templates/**/*",
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md"
+  ]
+}

@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true
+
+# Patch esbuild used by Drizzle's legacy TypeScript transpiler.
+overrides:
+  '@esbuild-kit/core-utils>esbuild': 0.25.12

@@ -1,0 +1,67 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        node-version: [24, 26]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - name: Reject npm lockfiles
+        run: test ! -e package-lock.json
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 12.5.1
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm run typecheck
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Check formatting
+        run: pnpm run format:check
+
+      - name: Check README examples
+        run: pnpm run test:docs
+
+      - name: Run tests with coverage
+        run: pnpm exec vitest run --coverage
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Smoke test built package and CLI
+        run: pnpm run test:package
+
+      - name: Upload coverage reports to Codecov
+        if: matrix.node-version == 24
+        continue-on-error: true
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: kahwee/octoload
