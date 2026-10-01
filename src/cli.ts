@@ -39,14 +39,14 @@ program
     'nextjs'
   )
   .option('--auth <provider>', 'Auth: custom or better-auth', 'custom')
+  .option('--dialect <dialect>', 'Database: postgresql or sqlite', 'postgresql')
   .action(initCommand);
 
 program
   .command('generate')
-  .description(
-    'Write a PostgreSQL Drizzle upload schema (overwrites the output file)'
-  )
+  .description('Write a Drizzle upload schema (overwrites the output file)')
   .option('--output <path>', 'Schema output path', 'src/db/upload-schema.ts')
+  .option('--dialect <dialect>', 'Database: postgresql or sqlite', 'postgresql')
   .action(generateCommand);
 
 program

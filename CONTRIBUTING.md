@@ -49,9 +49,10 @@ pnpm run test:package
 
 # Check storage harness locally without credentials (after build)
 pnpm run test:harness
+pnpm run test:db:pglite
 
 # Full verification (before submitting PR)
-pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:docs && pnpm run test:coverage && pnpm run build && pnpm run test:package && pnpm run test:harness
+pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:docs && pnpm run test:coverage && pnpm run build && pnpm run test:package && pnpm run test:harness && pnpm run test:db:pglite && node examples/database.mjs sqlite && node examples/database.mjs pglite
 ```
 
 For dependency maintenance, run `pnpm update --latest`, review the manifest and

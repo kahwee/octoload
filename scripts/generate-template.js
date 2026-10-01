@@ -12,9 +12,9 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function generateTemplateModule() {
+function generateTemplateModule(source, functionName) {
   // Read the actual schema file to ensure single source of truth
-  const schemaPath = path.join(__dirname, '../src/templates/upload-schema.ts');
+  const schemaPath = path.join(__dirname, '../src/templates', source);
   const templateContent = fs.readFileSync(schemaPath, 'utf8');
 
   // Escape the template content for embedding in a TypeScript string
@@ -29,7 +29,7 @@ function generateTemplateModule() {
  * DO NOT EDIT MANUALLY
  */
 
-export function getUploadSchemaTemplate(): string {
+export function ${functionName}(): string {
   return \`${escapedContent}\`;
 }
 `;
@@ -37,17 +37,16 @@ export function getUploadSchemaTemplate(): string {
   return moduleContent;
 }
 
-// Generate the template module
-const moduleContent = generateTemplateModule();
-const outputPath = path.join(__dirname, '../src/templates/schema-template.ts');
-
-// Ensure templates directory exists
-const templatesDir = path.dirname(outputPath);
-if (!fs.existsSync(templatesDir)) {
-  fs.mkdirSync(templatesDir, { recursive: true });
+for (const [source, target, functionName] of [
+  ['upload-schema.ts', 'schema-template.ts', 'getUploadSchemaTemplate'],
+  [
+    'upload-schema-sqlite.ts',
+    'sqlite-schema-template.ts',
+    'getUploadSQLiteSchemaTemplate',
+  ],
+]) {
+  const outputPath = path.join(__dirname, '../src/templates', target);
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(outputPath, generateTemplateModule(source, functionName));
+  console.log(`✅ Generated template module at src/templates/${target}`);
 }
-
-// Write the generated module
-fs.writeFileSync(outputPath, moduleContent);
-
-console.log('✅ Generated template module at src/templates/schema-template.ts');

@@ -61,6 +61,14 @@ jobs:
       - name: Check storage harness behavior
         run: pnpm run test:harness
 
+      - name: Check real PostgreSQL engine with PGlite
+        run: pnpm run test:db:pglite
+
+      - name: Run disposable database examples
+        run: |
+          node examples/database.mjs sqlite
+          node examples/database.mjs pglite
+
       - name: Upload coverage reports to Codecov
         if: matrix.node-version == 24
         continue-on-error: true

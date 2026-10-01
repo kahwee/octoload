@@ -1,8 +1,8 @@
 {
   "name": "octoload",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Browser-to-S3/R2 single-PUT image uploads with PostgreSQL metadata and Next.js/React Router scaffolds",
+  "description": "Browser-to-S3/R2 image uploads with PostgreSQL or SQLite metadata and framework scaffolds",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -54,7 +54,10 @@
     "typecheck": "tsc",
     "update-all-package": "pnpm update --latest",
     "prepublishOnly": "pnpm run typecheck && pnpm run lint && pnpm run build",
-    "example:presign": "node examples/presign.mjs"
+    "example:presign": "node examples/presign.mjs",
+    "test:storage:adversarial": "node scripts/test-storage-adversarial.js",
+    "test:db:pglite": "node --test scripts/test-db-pglite.js",
+    "test:db:sqlite:live": "node --test scripts/test-db-sqlite-live.js"
   },
   "keywords": [
     "image",
@@ -70,7 +73,9 @@
     "nextjs",
     "file-upload",
     "direct-upload",
-    "storage"
+    "storage",
+    "sqlite",
+    "postgresql"
   ],
   "author": "KahWee Teng <tengkahwee@gmail.com>",
   "license": "MIT",
@@ -102,6 +107,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
+    "@electric-sql/pglite": "0.5.8",
+    "@libsql/client": "0.18.0",
     "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",
     "@typescript/typescript6": "6.0.2",

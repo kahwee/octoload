@@ -2,17 +2,17 @@
 
 Upload images straight from your browser to **Amazon S3 or Cloudflare R2**.
 Octoload connects a lightweight browser client to your app’s authentication,
-PostgreSQL metadata, and framework handlers. You own the storage and the data.
+PostgreSQL or SQLite metadata, and framework handlers. You own the storage and the data.
 
 ## Release status and install
 
-**This checkout is 0.1.9, unreleased.** The npm `latest` version is still 0.1.8
+**This checkout is 0.2.0, unreleased.** The npm `latest` version is still 0.1.8
 (checked 2026-10-01). Its README and generated scaffolds do not match this guide,
 and it does not include the upload-hardening changes below. Pushing to GitHub
 does not publish a new npm package. See the [release checklist](https://github.com/kahwee/octoload/blob/main/docs/releasing.md).
 
-Use Node.js 24+. **Bun is not required.** PostgreSQL is the supported database;
-MySQL and SQLite are not supported. To try this checkout before an npm release,
+Use Node.js 24+. **Bun is not required.** PostgreSQL and SQLite are supported;
+choose your database when generating the schema. To try this checkout before an npm release,
 build a local package with the pnpm version pinned in `package.json`:
 
 ```bash
@@ -20,13 +20,13 @@ git clone https://github.com/kahwee/octoload.git
 cd octoload
 pnpm install --frozen-lockfile
 pnpm run build
-pnpm pack --out /tmp/octoload-0.1.9.tgz
+pnpm pack --out /tmp/octoload-0.2.0.tgz
 ```
 
 In your existing Next.js app with PostgreSQL, Drizzle, and Better Auth:
 
 ```bash
-pnpm add /tmp/octoload-0.1.9.tgz drizzle-orm pg
+pnpm add /tmp/octoload-0.2.0.tgz drizzle-orm pg
 pnpm add -D drizzle-kit @types/pg
 pnpm exec octoload init --framework nextjs --adapter s3 --auth better-auth
 pnpm exec octoload generate --output src/db/upload-schema.ts
@@ -36,6 +36,10 @@ The scaffold creates authenticated upload and image routes. Connect your databas
 fill in the server environment, and apply the generated schema using the
 [Next.js setup guide](https://github.com/kahwee/octoload/blob/main/docs/nextjs.md). `init` preserves existing files;
 `generate` replaces its output file.
+
+For SQLite, use `--dialect sqlite` with both `init` and `generate`.
+See the [database guide](https://github.com/kahwee/octoload/blob/main/docs/databases.md)
+for SQLite and PGlite connections and runnable examples.
 
 ## Upload an image
 

@@ -75,7 +75,7 @@ This cleans up single PUT uploads. If you use the storage adapter's lower-level 
 
   Review foreign keys and indexes on those columns during the migration.
 - The core upload flow uses single PUT on S3 and R2. It rejects `strategy: 'multipart'` and finalize requests with `parts`. Multipart types and low-level adapter methods exist, but there is no multipart server workflow.
-- The schema generator emits PostgreSQL tables. The `upload_sessions`, `asset_variants`, and `image_tags` tables are available in the schema, but the current upload flow writes only `images`. Image processing, tag writes, hooks, custom storage adapters, MySQL, and SQLite are not implemented by the core flow.
+- The schema generator emits PostgreSQL tables by default and SQLite tables with `--dialect sqlite`; see [database setup](databases.md). The `upload_sessions`, `asset_variants`, and `image_tags` tables are available in the schema, but the current upload flow writes only `images`. Image processing, tag writes, hooks, custom storage adapters and MySQL are not implemented by the core flow.
 
 
 ## Upload integrity and upgrades

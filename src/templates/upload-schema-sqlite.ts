@@ -1,0 +1,188 @@
+import { integer, sqliteTable, text, check } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+
+// Re-export types from drizzle for convenience
+import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
+
+// SQLite enum values retain the PostgreSQL row types.
+export const imageStatusValues = ['processing', 'ready', 'failed'] as const;
+export const assetVariantValues = [
+  'original',
+  'thumb',
+  'webp',
+  'avif',
+  'small',
+  'medium',
+  'large',
+] as const;
+export type ImageStatus = (typeof imageStatusValues)[number];
+export type AssetVariant = (typeof assetVariantValues)[number];
+
+const now = sql`(cast((julianday('now') - 2440587.5) * 86400000 as integer))`;
+const date = (name: string) => integer(name, { mode: 'timestamp_ms' });
+
+// Images table
+export const images = sqliteTable(
+  'images',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    ownerId: text('owner_id'), // Better Auth and other string IDs
+    orgId: text('org_id'), // nullable for personal uploads
+    entityType: text('entity_type'), // e.g., 'appliance', 'recipe', 'user'
+    entityId: text('entity_id'), // UUID of the associated entity
+    filename: text('filename').notNull(),
+    contentType: text('content_type').notNull(),
+    byteSize: integer('byte_size').notNull(),
+    status: text('status', { enum: imageStatusValues })
+      .notNull()
+      .default('processing'),
+    storageKey: text('storage_key').notNull(),
+    publicUrl: text('public_url'), // nullable for private storage
+    checksum: text('checksum'), // SHA-256 hash
+    alt: text('alt'), // accessibility text
+    title: text('title'),
+    isPublic: integer('is_public', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    createdAt: date('created_at').notNull().default(now),
+    updatedAt: date('updated_at').notNull().default(now),
+  },
+  (table) => [
+    check(
+      'images_status_check',
+      sql`${table.status} in ('processing', 'ready', 'failed')`
+    ),
+    check('images_public_check', sql`${table.isPublic} in (0, 1)`),
+  ]
+);
+
+// Upload sessions for multipart uploads
+export const uploadSessions = sqliteTable('upload_sessions', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => randomUUID()),
+  imageId: text('image_id').references(() => images.id, {
+    onDelete: 'cascade',
+  }),
+  uploadId: text('upload_id'), // S3 multipart upload ID
+  partCount: integer('part_count').notNull().default(1),
+  expiresAt: date('expires_at').notNull(),
+  createdAt: date('created_at').notNull().default(now),
+});
+
+// Asset variants for different sizes/formats
+export const assetVariants = sqliteTable(
+  'asset_variants',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    imageId: text('image_id')
+      .notNull()
+      .references(() => images.id, { onDelete: 'cascade' }),
+    variant: text('variant', { enum: assetVariantValues }).notNull(),
+    width: integer('width'),
+    height: integer('height'),
+    byteSize: integer('byte_size').notNull(),
+    storageKey: text('storage_key').notNull(),
+    publicUrl: text('public_url'),
+    createdAt: date('created_at').notNull().default(now),
+  },
+  (table) => [
+    check(
+      'asset_variants_variant_check',
+      sql`${table.variant} in ('original', 'thumb', 'webp', 'avif', 'small', 'medium', 'large')`
+    ),
+  ]
+);
+
+// Image tags for organization
+export const imageTags = sqliteTable('image_tags', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => randomUUID()),
+  imageId: text('image_id')
+    .notNull()
+    .references(() => images.id, { onDelete: 'cascade' }),
+  tag: text('tag').notNull(),
+  createdAt: date('created_at').notNull().default(now),
+});
+
+// Improved type definitions using Drizzle's latest inference types
+export type Image = InferSelectModel<typeof images>;
+export type NewImage = InferInsertModel<typeof images>;
+export type UploadSession = InferSelectModel<typeof uploadSessions>;
+export type NewUploadSession = InferInsertModel<typeof uploadSessions>;
+export type AssetVariantRecord = InferSelectModel<typeof assetVariants>;
+export type NewAssetVariant = InferInsertModel<typeof assetVariants>;
+export type ImageTag = InferSelectModel<typeof imageTags>;
+export type NewImageTag = InferInsertModel<typeof imageTags>;
+
+// Entity type helpers for better type safety
+export type EntityType =
+  | 'appliance'
+  | 'recipe'
+  | 'user'
+  | 'ingredient'
+  | 'equipment'
+  | string;
+
+// Utility types for common operations
+export type ImageWithVariants = Image & {
+  variants?: AssetVariantRecord[];
+  tags?: ImageTag[];
+};
+
+export type ImageCreateInput = Omit<
+  NewImage,
+  'id' | 'createdAt' | 'updatedAt'
+> & {
+  variants?: Omit<NewAssetVariant, 'id' | 'imageId' | 'createdAt'>[];
+  tags?: string[];
+};
+
+// Database relation helpers
+export type ImageRelations = {
+  variants: AssetVariantRecord[];
+  tags: ImageTag[];
+  uploadSession?: UploadSession;
+};
+
+// Export table names for migrations with proper typing
+export const tableNames = {
+  images: 'images',
+  uploadSessions: 'upload_sessions',
+  assetVariants: 'asset_variants',
+  imageTags: 'image_tags',
+} as const;
+
+export type TableName = (typeof tableNames)[keyof typeof tableNames];
+
+// Schema object for octoload core with enhanced typing
+export const uploadSchema = {
+  images,
+  uploadSessions,
+  assetVariants,
+  imageTags,
+  imageStatusValues,
+  assetVariantValues,
+  // Include table names for convenience
+  tableNames,
+} as const;
+
+// Schema type for type safety in core handlers
+export type UploadSchema = typeof uploadSchema;
+
+// Export commonly used query helpers
+export type ImageQueries = {
+  findById: (id: string) => Promise<Image | undefined>;
+  findByStorageKey: (storageKey: string) => Promise<Image | undefined>;
+  findByEntity: (entityType: string, entityId: string) => Promise<Image[]>;
+  findWithVariants: (id: string) => Promise<ImageWithVariants | undefined>;
+  create: (data: ImageCreateInput) => Promise<Image>;
+  updateStatus: (id: string, status: ImageStatus) => Promise<void>;
+  delete: (id: string) => Promise<void>;
+};

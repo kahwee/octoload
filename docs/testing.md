@@ -69,13 +69,61 @@ This harness needs live credentials; a missing configuration fails before any
 storage requests. Run it against each supported provider before a storage release.
 It does not exercise browser CORS, the database, or framework handlers.
 
-## Next harness layers
+## Database adversaries
 
-Add a disposable PostgreSQL database and run presign → PUT → finalize → read →
-delete through real handlers, including cross-user access and failed storage
-responses. Then add browser tests against that stack for progress, cancellation,
-required headers, and CORS. Those layers complement the provider harness and the
-fast offline regression suite.
+`pnpm test` includes real local SQLite tests using libSQL and migrations generated
+from the SQLite template. They exercise the private lifecycle, ownership, rejected
+metadata escalation, timestamp and boolean decoding, competing finalizations,
+cleanup retries, enum checks, foreign keys, and cascading deletes. Storage is
+stubbed in these tests.
+
+After building, run `pnpm test:db:pglite`. This uses PGlite's PostgreSQL engine,
+with migrations generated from the PostgreSQL template. Tests cover real SQL
+constraints, hostile owner strings as bound parameters, cross-user isolation,
+12 competing finalizations, cleanup/finalize races and cleanup retries. Storage
+is stubbed unless the live mode below is explicitly enabled.
+
+For a real R2 upload through the database-backed core:
+
+```sh
+OCTOLOAD_DB_TEST_LIVE_R2=1 node --env-file=.env.r2-test --test scripts/test-db-pglite.js
+```
+
+For the matching SQLite + R2 lifecycle, run:
+
+```sh
+node --env-file=.env.r2-test --test scripts/test-db-sqlite-live.js
+```
+
+Both live database tests upload an actual PNG, finalize via R2 HeadObject and database
+SQL, download and compares bytes, check replay rejection, and delete both
+object and database row. Use a local ignored credentials file with mode 0600;
+never commit it. PGlite runs an actual PostgreSQL engine without a network server,
+so these checks do not prove connection pooling or multi-process isolation.
+
+## Bounded live R2 attacks
+
+```sh
+node --env-file=.env.r2-test scripts/test-storage-adversarial.js
+```
+
+This opt-in harness uses only random keys in the dedicated test bucket. It sends
+64 single-position signature mutations, changes expiry/date/credential/key/type,
+tries an empty body and unsigned/forged reads, and races 12 PUTs against one key.
+Exactly one PUT must win; the other eleven must return 412 and leave winning
+bytes unchanged. Rejected mutations must leave their fresh object absent. It
+also confirms the content-validation boundary: same-size non-image bytes are
+accepted. This is a bounded mutation suite, not exhaustive brute force or load
+testing. Requests have 15-second timeouts, a 90-second overall budget and separate
+cleanup time. The harness prints only case results, never signed URLs or keys.
+
+## Remaining integration layers
+
+Browser CORS, framework routes with a real session provider, network PostgreSQL
+pooling, and multiple application processes still need deployment-level checks.
+Add browser tests against that stack for progress, cancellation, required headers,
+and CORS. The current real database plus R2 lifecycle runs through the core, not
+an HTTP framework handler or browser.
 
 After building, `pnpm test:harness` checks the harness itself against a local HTTP
 fixture: missing configuration, a successful lifecycle, detection of incorrectly

@@ -54,8 +54,10 @@ try {
     'docs/integrations.md',
     'docs/testing.md',
     'docs/releasing.md',
+    'docs/databases.md',
     'examples/README.md',
     'examples/presign.mjs',
+    'examples/database.mjs',
   ]) {
     assert.ok(
       entries.includes(`package/${path}`),
@@ -175,6 +177,25 @@ for (const name of ['octoload', 'octoload/client', 'octoload/nextjs', 'octoload/
     assert.match(
       readFileSync(join(r2Project, 'app/db/upload-schema.ts'), 'utf8'),
       /ownerId: varchar\('owner_id', \{ length: 255 \}\)/
+    );
+    const sqliteProject = join(project, 'sqlite-app');
+    mkdirSync(sqliteProject);
+    runCli(
+      ['init', '--framework', 'nextjs', '--dialect', 'sqlite'],
+      sqliteProject
+    );
+    runCli(['generate', '--dialect', 'sqlite'], sqliteProject);
+    assert.match(
+      readFileSync(join(sqliteProject, 'drizzle.config.ts'), 'utf8'),
+      /dialect: 'sqlite'/
+    );
+    assert.match(
+      readFileSync(join(sqliteProject, 'src/db/upload-schema.ts'), 'utf8'),
+      /sqliteTable/
+    );
+    assert.match(
+      readFileSync(join(sqliteProject, '.env.example'), 'utf8'),
+      /DATABASE_URL=file:/
     );
   } finally {
     rmSync(project, { recursive: true, force: true });

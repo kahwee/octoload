@@ -3,6 +3,8 @@ import { z } from 'zod';
 // Import proper Drizzle types and functions
 import { and, eq, lt, or } from 'drizzle-orm';
 import type { PgDatabase } from 'drizzle-orm/pg-core';
+import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
+import type { UploadSchema as SQLiteUploadSchema } from '../templates/upload-schema-sqlite.js';
 import { S3StorageAdapter } from '../storage/s3-adapter.js';
 // Import the actual schema types from our template
 import type { NewImage, UploadSchema } from '../templates/upload-schema.js';
@@ -16,16 +18,23 @@ import type {
 import { finalizeRequestSchema, presignRequestSchema } from '../types/index.js';
 import { generateServerUUID } from '../utils/uuid.js';
 
-// Match PostgreSQL Drizzle instances without requiring a particular driver.
-export type DrizzleDB = Pick<
+// Only the common, awaited query operations are used by the core.
+type PostgresOperations = Pick<
   // biome-ignore lint/suspicious/noExplicitAny: Drizzle's database generics vary by driver and schema.
   PgDatabase<any, any, any>,
   'insert' | 'select' | 'update' | 'delete'
 >;
+type SQLiteOperations = Pick<
+  // biome-ignore lint/suspicious/noExplicitAny: Drizzle drivers have different result and schema generics.
+  BaseSQLiteDatabase<'sync' | 'async', any, any, any>,
+  'insert' | 'select' | 'update' | 'delete'
+>;
+export type DrizzleDB = PostgresOperations | SQLiteOperations;
 
 // Use the proper schema type from our template, but allow flexible structure for testing
 export type DrizzleSchema =
   | UploadSchema
+  | SQLiteUploadSchema
   | {
       images: unknown;
       uploadSessions: unknown;
@@ -45,13 +54,15 @@ export class OctoloadCore<
   TDb extends DrizzleDB = DrizzleDB,
   TSchema extends DrizzleSchema = DrizzleSchema,
 > {
-  private db: TDb;
+  private db: PostgresOperations;
   private schema: TSchema;
   private storage: S3StorageAdapter;
   private limits?: { maxFileSize?: number; allowedTypes?: string[] };
 
   constructor(config: OctoloadConfigLike, db: TDb, schema: TSchema) {
-    this.db = db;
+    // Both dialects implement this awaited query-builder subset. Their generic
+    // overloads differ, so normalize once without changing the supplied instance.
+    this.db = db as PostgresOperations;
     this.schema = schema;
     this.limits = config.limits;
 

@@ -5,6 +5,7 @@ interface InitOptions {
   adapter: 's3' | 'r2';
   framework: 'nextjs' | 'react-router';
   auth?: 'custom' | 'better-auth';
+  dialect?: 'postgresql' | 'sqlite';
 }
 
 function writeNew(path: string, content: string): boolean {
@@ -23,6 +24,11 @@ export async function initCommand(options: InitOptions) {
   }
   if (options.auth && !['custom', 'better-auth'].includes(options.auth)) {
     throw new Error('Auth provider must be custom or better-auth');
+  }
+
+  const dialect = options.dialect ?? 'postgresql';
+  if (!['postgresql', 'sqlite'].includes(dialect)) {
+    throw new Error('Database dialect must be postgresql or sqlite');
   }
 
   const cwd = process.cwd();
@@ -45,7 +51,7 @@ export async function initCommand(options: InitOptions) {
 export default defineConfig({
   schema: '${schemaPath}',
   out: './migrations',
-  dialect: 'postgresql',
+  dialect: '${dialect}',
   dbCredentials: { url: process.env.DATABASE_URL! },
 });
 `
@@ -88,8 +94,17 @@ export const uploadHandlerOptions = {
   }
 
   console.log(`Created ${created.length} octoload scaffold files.`);
-  console.log(`Next: pnpm exec octoload generate --output ${schemaPath}`);
-  console.log(`Then export db from ${appRoot}/db/index.ts.`);
+  console.log(
+    `Next: pnpm exec octoload generate --dialect ${dialect} --output ${schemaPath}`
+  );
+  console.log(
+    `Then export a ${dialect} Drizzle db from ${appRoot}/db/index.ts.`
+  );
+  if (dialect === 'sqlite') {
+    console.log(
+      'Set DATABASE_URL to your SQLite file, such as file:./uploads.db.'
+    );
+  }
   if (options.auth === 'better-auth') {
     console.log(
       `Better Auth: export auth from ${appRoot}/lib/${options.framework === 'nextjs' ? 'auth.ts' : 'auth.server.ts'}.`
@@ -153,7 +168,7 @@ function generateEnvTemplate(options: InitOptions): string {
   const prefix = options.adapter.toUpperCase();
   return `
 # Octoload ${prefix} configuration
-${prefix}_BUCKET=your-bucket-name
+${options.dialect === 'sqlite' ? 'DATABASE_URL=file:./uploads.db\n' : ''}${prefix}_BUCKET=your-bucket-name
 ${prefix}_REGION=${options.adapter === 'r2' ? 'auto' : 'us-east-1'}
 ${prefix}_ACCESS_KEY_ID=your-access-key
 ${prefix}_SECRET_ACCESS_KEY=your-secret-key

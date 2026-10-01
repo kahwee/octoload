@@ -1,11 +1,11 @@
 # Next.js setup with Better Auth
 
-This guide targets the unreleased 0.1.9 checkout. Follow the [source-package install steps](../README.md#release-status-and-install) first; npm 0.1.8 has older scaffolds and behavior. Bun is not required.
+This guide targets the unreleased 0.2.0 checkout. Follow the [source-package install steps](../README.md#release-status-and-install) first; npm 0.1.8 has older scaffolds and behavior. Bun is not required.
 
 You need Node.js 24+, an existing Next.js app with PostgreSQL, a Drizzle database connection, a Better Auth instance exported from `src/lib/auth.ts`, and an S3 bucket. For Cloudflare R2, use the [R2 variant](integrations.md#cloudflare-r2-variant).
 
 ```bash
-pnpm add /tmp/octoload-0.1.9.tgz drizzle-orm pg
+pnpm add /tmp/octoload-0.2.0.tgz drizzle-orm pg
 pnpm add -D drizzle-kit @types/pg
 pnpm exec octoload init --framework nextjs --adapter s3 --auth better-auth
 pnpm exec octoload generate --output src/db/upload-schema.ts
