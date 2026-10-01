@@ -47,14 +47,20 @@ pnpm run test:docs
 # Check built package exports and generated scaffolds (after build)
 pnpm run test:package
 
+# Check storage harness locally without credentials (after build)
+pnpm run test:harness
+
 # Full verification (before submitting PR)
-pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:docs && pnpm run test:coverage && pnpm run build && pnpm run test:package
+pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:docs && pnpm run test:coverage && pnpm run build && pnpm run test:package && pnpm run test:harness
 ```
 
 For dependency maintenance, run `pnpm update --latest`, review the manifest and
 lockfile diff, then run `pnpm install --frozen-lockfile` and the full verification
 command above. Dependabot tracks GitHub Actions; pnpm package updates are
 maintained in the repository.
+
+For provider-backed upload integrity checks, see the [adversarial test harness](docs/testing.md).
+The live harness is opt-in and requires a disposable S3 or R2 bucket.
 
 ## Code and reviews
 

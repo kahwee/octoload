@@ -63,7 +63,7 @@ This cleans up single PUT uploads. If you use the storage adapter's lower-level 
 
 ## Limits, access, and current scope
 
-- The generated config allows JPEG, PNG, WebP, and GIF up to 10 MiB. Change `limits.maxFileSize` and `limits.allowedTypes` in `config.ts`. PostgreSQL's `byte_size` integer column caps an upload at 2,147,483,647 bytes. Octoload enforces configured limits at presign, then compares `HeadObject` metadata at finalize. It does not inspect file contents.
+- The generated config allows JPEG, PNG, WebP, and GIF up to 10 MiB. Change `limits.maxFileSize` and `limits.allowedTypes` in `config.ts`. PostgreSQL's `byte_size` integer column caps an upload at 2,147,483,647 bytes. Octoload enforces configured limits at presign, then compares `HeadObject` metadata at finalize. The PUT signature binds the declared byte size and content type and requires `If-None-Match: *`, so an existing object cannot be overwritten through that URL. Custom clients must send every returned upload header; browsers set `Content-Length` automatically from the file body. Add `If-None-Match` to bucket CORS allowed headers. It does not inspect file contents.
 - The handler takes `ownerId` from the trusted session, never from the request body. If your app accepts `orgId`, authorize that organization membership in your app before treating the image as organization owned.
 - For another session provider, use `--auth custom` and replace the generated `getUploadUser` stub. The scaffold's upload routes still require a session. To allow anonymous public uploads, change those routes' `requireAuth` setting; anonymous private uploads remain disallowed.
 - The generated `images.owner_id` and `images.org_id` columns are `varchar(255)` so Better Auth's string IDs work. `images.id` and `images.entity_id` remain UUIDs. For an existing database with UUID owner or organization columns, migrate them before replacing the generated schema:
@@ -77,3 +77,26 @@ This cleans up single PUT uploads. If you use the storage adapter's lower-level 
 - The core upload flow uses single PUT on S3 and R2. It rejects `strategy: 'multipart'` and finalize requests with `parts`. Multipart types and low-level adapter methods exist, but there is no multipart server workflow.
 - The schema generator emits PostgreSQL tables. The `upload_sessions`, `asset_variants`, and `image_tags` tables are available in the schema, but the current upload flow writes only `images`. Image processing, tag writes, hooks, custom storage adapters, MySQL, and SQLite are not implemented by the core flow.
 
+
+## Upload integrity and upgrades
+
+Single-PUT upload URLs now require a signed `If-None-Match: *` header. A repeat PUT
+to an existing key fails rather than replacing its bytes. Upload attempts with a
+different declared size or content type fail signature validation. Update bucket
+CORS to allow `Content-Type` and `If-None-Match`; the browser client forwards both.
+Custom clients must forward the returned `headers` (or adapter `fields`) unchanged.
+The low-level adapter accepts an optional fourth `byteSize` argument; the core
+always supplies it.
+
+Reads through Octoload require a `ready` record. Metadata updates accept only
+`alt` (up to 500 characters) and `title` (up to 255), rejecting extra fields at runtime.
+
+These changes protect newly issued URLs. Previously issued URLs remain usable
+until their original expiry. Conditional PUT prevents replacement while an object
+exists; deleting the object permits its recreation until the PUT URL expires.
+Database deletion removes application access, but this is not token revocation.
+Keep private buckets private and use storage lifecycle rules for orphan cleanup.
+Public bucket URLs bypass application readiness and ownership checks entirely.
+
+Run the [adversarial storage harness](testing.md) against a disposable bucket
+when upgrading or changing provider configuration.

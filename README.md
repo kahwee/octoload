@@ -113,7 +113,7 @@ with yours and add your local development origin if needed:
   {
     "AllowedOrigins": ["https://app.example.com"],
     "AllowedMethods": ["PUT"],
-    "AllowedHeaders": ["Content-Type"]
+    "AllowedHeaders": ["Content-Type", "If-None-Match"]
   }
 ]
 ```
@@ -140,6 +140,8 @@ pnpm run test:docs
 
 CI runs type, lint, format, coverage, documentation, and built package checks.
 The [contribution guide](CONTRIBUTING.md) lists the full verification command.
+The [storage harness](docs/testing.md) tests signed uploads and replay protection
+against a dedicated S3 or R2 test bucket.
 Bucket uploads and database migrations need a configured integration environment.
 
 [MIT license](LICENSE).

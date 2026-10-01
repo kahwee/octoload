@@ -82,6 +82,15 @@ describe('OctoloadCore.presign', () => {
     expect(
       vi.mocked(S3StorageAdapter).mock.results[0].value.getPresignedPutUrl
     ).toHaveBeenCalledTimes(2);
+    expect(
+      vi.mocked(S3StorageAdapter).mock.results[0].value.getPresignedPutUrl
+    ).toHaveBeenNthCalledWith(
+      1,
+      first.storageKey,
+      request.contentType,
+      3600,
+      request.byteSize
+    );
   });
 
   it('rejects missing public delivery configuration before creating a row', async () => {
@@ -163,6 +172,7 @@ describe('OctoloadCore.presign', () => {
 describe('OctoloadCore image access', () => {
   const image = {
     id: 'image-1',
+    status: 'ready',
     ownerId: 'owner-1',
     isPublic: false,
     storageKey: 'uploads/image-1.jpg',

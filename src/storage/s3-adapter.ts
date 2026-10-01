@@ -41,6 +41,9 @@ export class S3StorageAdapter {
     const clientConfig: S3ClientConfig = {
       region: config.region,
       credentials: config.credentials,
+      // Presigning has no body to checksum. SDK automatic CRC32 would sign the
+      // empty-body checksum and reject the browser's actual file contents.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
     };
 
     // R2 uses an S3-compatible API endpoint, separate from its public domain.
@@ -80,17 +83,37 @@ export class S3StorageAdapter {
   async getPresignedPutUrl(
     key: string,
     contentType: string,
-    expiresIn: number = 3600
+    expiresIn: number = 3600,
+    byteSize?: number
   ): Promise<{ url: string; fields?: Record<string, string> }> {
+    if (
+      byteSize !== undefined &&
+      (!Number.isSafeInteger(byteSize) || byteSize <= 0)
+    ) {
+      throw new Error('Byte size must be a positive safe integer');
+    }
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
       ContentType: contentType,
+      ContentLength: byteSize,
+      // Require an absent key atomically; URL replay cannot replace uploaded bytes.
+      IfNoneMatch: '*',
     });
 
-    const url = await getSignedUrl(this.client, command, { expiresIn });
+    const signableHeaders = new Set(['if-none-match', 'content-type']);
+    if (byteSize !== undefined) signableHeaders.add('content-length');
+    const url = await getSignedUrl(this.client, command, {
+      expiresIn,
+      signableHeaders,
+    });
 
-    return { url };
+    // Browser upload clients must send these headers. Content-Length is derived
+    // automatically from the File body by the browser, so it is not returned.
+    return {
+      url,
+      fields: { 'If-None-Match': '*', 'Content-Type': contentType },
+    };
   }
 
   async getMultipartUpload(

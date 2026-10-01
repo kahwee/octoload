@@ -20,6 +20,7 @@ Object.defineProperty(global, 'crypto', {
 
 // Mock XMLHttpRequest
 class MockXMLHttpRequest {
+  static instances: MockXMLHttpRequest[] = [];
   upload: { addEventListener: typeof vi.fn } = { addEventListener: vi.fn() };
   addEventListener = vi.fn();
   open = vi.fn();
@@ -29,6 +30,7 @@ class MockXMLHttpRequest {
   statusText = 'OK';
 
   constructor() {
+    MockXMLHttpRequest.instances.push(this);
     // Simulate successful upload
     setTimeout(() => {
       const loadHandler = this.addEventListener.mock.calls.find(
@@ -47,6 +49,7 @@ describe('OctoloadClient', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    MockXMLHttpRequest.instances = [];
     client = new OctoloadClient({
       baseUrl: 'https://test.com',
       headers: { 'x-test': 'true' },
@@ -69,6 +72,7 @@ describe('OctoloadClient', () => {
         json: async () => ({
           storageKey: 'uploads/2025/test.jpg',
           uploadUrl: 'https://s3.amazonaws.com/presigned-url',
+          headers: { 'If-None-Match': '*', 'Content-Type': 'image/jpeg' },
           expiresAt: new Date(),
         }),
       });
@@ -91,6 +95,17 @@ describe('OctoloadClient', () => {
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(result.image.filename).toBe('test.jpg');
+      const xhr = MockXMLHttpRequest.instances[0];
+      expect(xhr.setRequestHeader).toHaveBeenCalledWith('If-None-Match', '*');
+      expect(xhr.setRequestHeader).toHaveBeenCalledWith(
+        'Content-Type',
+        'image/jpeg'
+      );
+      expect(xhr.setRequestHeader).not.toHaveBeenCalledWith(
+        'Content-Length',
+        expect.anything()
+      );
+      expect(xhr.send).toHaveBeenCalledWith(mockFile);
     }, 10000); // Increase timeout
 
     it('should handle presign request correctly', async () => {

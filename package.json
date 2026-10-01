@@ -1,6 +1,6 @@
 {
   "name": "octoload",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "type": "module",
   "description": "Minimal, composable image upload system with CLI for generating Drizzle schemas and typed clients",
   "main": "dist/index.js",
@@ -39,6 +39,8 @@
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:package": "node scripts/smoke-built.js",
+    "test:harness": "node --test scripts/check-storage-harness.js",
+    "test:storage:live": "node scripts/test-storage-live.js",
     "test:docs": "node scripts/check-readme.js",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

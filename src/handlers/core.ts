@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { z } from 'zod';
 // Import proper Drizzle types and functions
 import { and, eq, lt, or } from 'drizzle-orm';
 import type { PgDatabase } from 'drizzle-orm/pg-core';
@@ -139,7 +140,8 @@ export class OctoloadCore<
     const uploadResult = await this.storage.getPresignedPutUrl(
       storageKey,
       request.contentType,
-      3600 // 1 hour
+      3600, // 1 hour
+      request.byteSize
     );
 
     return {
@@ -353,6 +355,11 @@ export class OctoloadCore<
       throw new Error('Access denied');
     }
 
+    // Unverified or failed uploads must never receive a download URL.
+    if (image.status !== 'ready') {
+      throw new Error('Image not found');
+    }
+
     // Generate download URL
     const url = image.isPublic
       ? this.storage.getPublicUrl(image.storageKey)
@@ -465,11 +472,20 @@ export class OctoloadCore<
       throw new Error('Access denied');
     }
 
-    // Update metadata
+    // TypeScript annotations do not constrain JavaScript or request bodies.
+    const safeMetadata = z
+      .object({
+        alt: z.string().max(500).optional(),
+        title: z.string().max(255).optional(),
+      })
+      .strict()
+      .parse(metadata);
+
+    // Update only the validated metadata fields.
     const updateResults = await this.db
       .update(this.getImagesTable())
       .set({
-        ...metadata,
+        ...safeMetadata,
         updatedAt: new Date(),
       })
       .where(this.eq(cols.id, imageId))

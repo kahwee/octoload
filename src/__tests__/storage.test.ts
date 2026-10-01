@@ -49,7 +49,10 @@ describe('S3StorageAdapter', () => {
       );
 
       expect(result.url).toBe('https://example.com/presigned-url');
-      expect(result.fields).toBeUndefined();
+      expect(result.fields).toEqual({
+        'If-None-Match': '*',
+        'Content-Type': 'image/jpeg',
+      });
     });
 
     it('should handle different content types', async () => {

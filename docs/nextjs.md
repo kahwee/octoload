@@ -120,7 +120,7 @@ Apply a CORS rule to the bucket so browsers at your app origin can send the sign
   {
     "AllowedOrigins": ["https://app.example.com"],
     "AllowedMethods": ["PUT"],
-    "AllowedHeaders": ["Content-Type"]
+    "AllowedHeaders": ["Content-Type", "If-None-Match"]
   }
 ]
 ```

@@ -97,7 +97,10 @@ describe('R2StorageAdapter (Cloudflare R2)', () => {
       );
 
       expect(result.url).toBe('https://r2.cloudflarestorage.com/presigned-url');
-      expect(result.fields).toBeUndefined();
+      expect(result.fields).toEqual({
+        'If-None-Match': '*',
+        'Content-Type': 'image/jpeg',
+      });
     });
 
     it('should handle R2 presigned URL expiration limits', async () => {

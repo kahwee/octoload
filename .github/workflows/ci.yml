@@ -58,6 +58,9 @@ jobs:
       - name: Smoke test built package and CLI
         run: pnpm run test:package
 
+      - name: Check storage harness behavior
+        run: pnpm run test:harness
+
       - name: Upload coverage reports to Codecov
         if: matrix.node-version == 24
         continue-on-error: true
