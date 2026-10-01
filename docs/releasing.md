@@ -71,3 +71,37 @@ choice for new databases; cross-engine data migration needs a separate reviewed
 export/import. Image decoding, checksum verification and upload revocation after
 object deletion remain outside this feature. See [database setup](databases.md)
 and [test coverage](testing.md) for the verified boundaries.
+
+## Publishing setup verified
+
+The `kahwee` npm account is listed as the maintainer. Local npm authentication
+is not configured. The 0.2.0 tarball passed this non-publishing rehearsal:
+
+```sh
+pnpm pack --out /tmp/octoload-0.2.0.tgz
+pnpm publish /tmp/octoload-0.2.0.tgz --dry-run --ignore-scripts --access public --tag next
+```
+
+Use the pinned pnpm to publish: direct `npm publish` in this checkout fails the
+intentional `devEngines.packageManager` requirement. `--ignore-scripts` here is
+for a built, previously verified tarball; it does not replace the full checks.
+After release authorization and an interactive npm login/2FA, the corresponding
+publish command removes `--dry-run`. Publishing with `--tag next` leaves `latest`
+on the existing version for preview evaluation; promotion is a separate action.
+A dry run does not prove that registry authentication or publication will succeed.
+
+For repeatable releases, configure [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/)
+for this repository and a dedicated manual GitHub Actions workflow. It provides
+short-lived OIDC credentials and automatic provenance. The workflow and npm
+trusted-publisher binding are not configured yet. Do not add persistent R2 or npm
+credentials to the repository while setting this up.
+
+## Next quality milestone
+
+Prioritize validation before ready: download within a byte budget, decode only
+allowed raster formats with pixel/frame/time limits, and reject or quarantine
+invalid content. Full decoding is stronger than file signatures or metadata
+inspection. It adds bandwidth, CPU, memory and latency, so it needs an explicit
+resource policy and failure/retry tests. Then exercise browser CORS and real
+session-authenticated framework routes through upload, finalize, read and delete.
+Keep further database/provider expansion behind those checks.
