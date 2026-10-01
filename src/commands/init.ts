@@ -6,6 +6,7 @@ interface InitOptions {
   framework: 'nextjs' | 'react-router';
   auth?: 'custom' | 'better-auth';
   dialect?: 'postgresql' | 'sqlite';
+  driver?: 'pglite';
 }
 
 function writeNew(path: string, content: string): boolean {
@@ -31,6 +32,13 @@ export async function initCommand(options: InitOptions) {
     throw new Error('Database dialect must be postgresql or sqlite');
   }
 
+  if (options.driver && options.driver !== 'pglite') {
+    throw new Error('Database driver must be pglite when specified');
+  }
+  if (options.driver === 'pglite' && dialect !== 'postgresql') {
+    throw new Error('PGlite requires the postgresql dialect');
+  }
+
   const cwd = process.cwd();
   const appRoot = options.framework === 'nextjs' ? 'src' : 'app';
   const octoloadDir = join(cwd, appRoot, 'lib/octoload');
@@ -46,16 +54,62 @@ export async function initCommand(options: InitOptions) {
 
   add(
     join(cwd, 'drizzle.config.ts'),
-    `import { defineConfig } from 'drizzle-kit';
+    `import { existsSync } from 'node:fs';
+import { defineConfig } from 'drizzle-kit';
+
+if (existsSync('.env')) process.loadEnvFile('.env');
 
 export default defineConfig({
   schema: '${schemaPath}',
   out: './migrations',
   dialect: '${dialect}',
-  dbCredentials: { url: process.env.DATABASE_URL! },
+  ${options.driver === 'pglite' ? "driver: 'pglite',\n  " : ''}dbCredentials: { url: process.env.DATABASE_URL! },
 });
 `
   );
+  if (options.driver === 'pglite') {
+    add(
+      join(cwd, appRoot, 'db/index.ts'),
+      `import { PGlite } from '@electric-sql/pglite';
+import { drizzle } from 'drizzle-orm/pglite';
+import * as schema from './upload-schema';
+
+// A persistent directory, shared with drizzle.config.ts. Do not use an empty URL.
+const dataDir = process.env.DATABASE_URL;
+if (!dataDir) throw new Error('DATABASE_URL must identify a persistent PGlite directory');
+export const client = new PGlite(dataDir);
+export const db = drizzle(client, { schema });
+`
+    );
+  }
+  if (options.driver === 'pglite' || dialect === 'sqlite') {
+    const ignorePath = join(cwd, '.gitignore');
+    const existing = existsSync(ignorePath)
+      ? readFileSync(ignorePath, 'utf8')
+      : '';
+    const patterns =
+      options.driver === 'pglite'
+        ? ['/uploads-pglite/']
+        : [
+            '/uploads.db',
+            '/uploads.db-journal',
+            '/uploads.db-wal',
+            '/uploads.db-shm',
+          ];
+    const existingPatterns = new Set(
+      existing.split(/\r?\n/).map((line) => line.trim())
+    );
+    const missing = patterns.filter(
+      (pattern) => !existingPatterns.has(pattern)
+    );
+    if (missing.length) {
+      const separator = existing && !existing.endsWith('\n') ? '\n' : '';
+      writeFileSync(
+        ignorePath,
+        `${existing}${separator}\n# Octoload local database\n${missing.join('\n')}\n`
+      );
+    }
+  }
   add(join(octoloadDir, 'config.ts'), generateConfig(options));
   add(join(octoloadDir, 'auth.ts'), generateAuth(options));
   add(
@@ -79,12 +133,23 @@ export const uploadHandlerOptions = {
   const envContent = generateEnvTemplate(options);
   if (!existsSync(envPath)) {
     add(envPath, envContent);
-  } else if (
-    !readFileSync(envPath, 'utf8').includes(
-      `${options.adapter.toUpperCase()}_BUCKET=`
-    )
-  ) {
-    writeFileSync(envPath, envContent, { flag: 'a' });
+  } else {
+    const existing = readFileSync(envPath, 'utf8');
+    const missing = envContent.split('\n').filter((line) => {
+      const name = line.match(/^([A-Z0-9_]+)=/)?.[1];
+      return (
+        name &&
+        !new RegExp(`^\\s*(?:export\\s+)?${name}\\s*=`, 'm').test(existing)
+      );
+    });
+    if (missing.length > 0) {
+      const separator = existing.endsWith('\n') ? '' : '\n';
+      writeFileSync(
+        envPath,
+        `${separator}\n# Octoload additional configuration\n${missing.join('\n')}\n`,
+        { flag: 'a' }
+      );
+    }
   }
 
   if (options.framework === 'nextjs') {
@@ -100,6 +165,17 @@ export const uploadHandlerOptions = {
   console.log(
     `Then export a ${dialect} Drizzle db from ${appRoot}/db/index.ts.`
   );
+  if (options.driver === 'pglite') {
+    console.log(
+      'Install @electric-sql/pglite and drizzle-kit in your application.'
+    );
+    console.log(
+      'Set DATABASE_URL to a persistent directory, such as ./uploads-pglite.'
+    );
+    console.log(
+      'Close the application database before running CLI migrations.'
+    );
+  }
   if (dialect === 'sqlite') {
     console.log(
       'Set DATABASE_URL to your SQLite file, such as file:./uploads.db.'
@@ -168,7 +244,7 @@ function generateEnvTemplate(options: InitOptions): string {
   const prefix = options.adapter.toUpperCase();
   return `
 # Octoload ${prefix} configuration
-${options.dialect === 'sqlite' ? 'DATABASE_URL=file:./uploads.db\n' : ''}${prefix}_BUCKET=your-bucket-name
+${options.driver === 'pglite' ? 'DATABASE_URL=./uploads-pglite\n' : options.dialect === 'sqlite' ? 'DATABASE_URL=file:./uploads.db\n' : ''}${prefix}_BUCKET=your-bucket-name
 ${prefix}_REGION=${options.adapter === 'r2' ? 'auto' : 'us-east-1'}
 ${prefix}_ACCESS_KEY_ID=your-access-key
 ${prefix}_SECRET_ACCESS_KEY=your-secret-key

@@ -33,3 +33,14 @@ These apply the generated schema to real in-memory databases and create a privat
 processing record through Octoload with dummy storage credentials. They send no
 upload requests. See [database connections](../docs/databases.md) and
 [actual upload testing](../docs/testing.md).
+
+## Persistent database round trips
+
+```sh
+node examples/persistent-database.mjs sqlite
+node examples/persistent-database.mjs pglite
+```
+
+These reopen a temporary disk database and verify that private metadata survives.
+They use fake signing credentials, send no uploads, and remove the database after
+verification. For an application connection and migrations, use the [database guide](../docs/databases.md).

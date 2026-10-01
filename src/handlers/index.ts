@@ -6,6 +6,7 @@ import type {
 import type { DrizzleDB, DrizzleSchema } from './core.js';
 import { OctoloadCore } from './core.js';
 import { DrizzleError, DrizzleQueryError } from 'drizzle-orm';
+import { ZodError } from 'zod';
 
 export interface HandlerContext {
   request: Request;
@@ -26,15 +27,38 @@ export interface HandlerOptions<
   getUser?: (context: HandlerContext) => Promise<{ id: string } | null>;
 }
 
+class InvalidRequestError extends Error {}
+
+async function parseBody(request: Request): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    throw new InvalidRequestError('Invalid request');
+  }
+}
+
 async function resolveUser(
   options: HandlerOptions,
   context?: HandlerContext
 ): Promise<{ id: string } | undefined> {
   if (options.getUser) {
-    return context ? (await options.getUser(context)) || undefined : undefined;
+    try {
+      return context
+        ? (await options.getUser(context)) || undefined
+        : undefined;
+    } catch (cause) {
+      // Provider error classes cannot turn an authentication outage into a
+      // validation failure or reveal their messages through the HTTP boundary.
+      throw new Error('Authentication provider failed', { cause });
+    }
   }
   return context?.user;
 }
+
+const jsonHeaders = {
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-store',
+};
 
 function authErrorStatus(message: string): number {
   if (message === 'Authentication required') return 401;
@@ -51,11 +75,41 @@ function authErrorMessage(message: string): string {
   return authErrorStatus(message) === 404 ? 'Image not found' : message;
 }
 
-function errorMessage(error: unknown): string {
+// Only fixed application errors may be sent to callers. SDKs, drivers and
+// authentication callbacks can include credentials, queries or signed URLs.
+const publicErrors = new Set([
+  'Authentication required',
+  'Image not found',
+  'Access denied',
+  'Image record not found for storage key',
+  'Multipart uploads are not supported by the core upload flow',
+  'File exceeds the configured size limit',
+  'File type is not allowed',
+  'Upload is no longer processing',
+  'Upload verification failed - file not found in storage',
+  'Upload verification failed - file size does not match',
+  'Upload verification failed - content type does not match',
+]);
+
+function errorResponse(error: unknown): Response {
+  let status = 500;
+  let message = 'Internal server error';
   if (error instanceof DrizzleError || error instanceof DrizzleQueryError) {
-    return 'Database operation failed';
+    message = 'Database operation failed';
+  } else if (
+    error instanceof ZodError ||
+    error instanceof InvalidRequestError
+  ) {
+    status = 400;
+    message = 'Invalid request';
+  } else if (error instanceof Error && publicErrors.has(error.message)) {
+    status = authErrorStatus(error.message);
+    message = authErrorMessage(error.message);
   }
-  return error instanceof Error ? error.message : 'Unknown error';
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: jsonHeaders,
+  });
 }
 
 export function createPresignHandler<
@@ -78,13 +132,19 @@ export function createPresignHandler<
             JSON.stringify({ error: 'Authentication required' }),
             {
               status: 401,
-              headers: { 'Content-Type': 'application/json' },
+              headers: jsonHeaders,
             }
           );
         }
       }
 
-      const body = await request.json();
+      const body = await parseBody(request);
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: 'Invalid request' }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
       const presignRequest = body as PresignRequest;
 
       // Never trust an owner ID supplied in the request body.
@@ -94,7 +154,7 @@ export function createPresignHandler<
           JSON.stringify({ error: 'Authentication required' }),
           {
             status: 401,
-            headers: { 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           }
         );
       }
@@ -103,14 +163,10 @@ export function createPresignHandler<
 
       return new Response(JSON.stringify(result), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: jsonHeaders,
       });
     } catch (error) {
-      const message = errorMessage(error);
-      return new Response(JSON.stringify({ error: message }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return errorResponse(error);
     }
   };
 }
@@ -133,28 +189,21 @@ export function createFinalizeHandler<
           JSON.stringify({ error: 'Authentication required' }),
           {
             status: 401,
-            headers: { 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           }
         );
       }
-      const body = await request.json();
+      const body = await parseBody(request);
       const finalizeRequest = body as FinalizeRequest;
 
       const result = await core.finalize(finalizeRequest, user?.id);
 
       return new Response(JSON.stringify(result), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: jsonHeaders,
       });
     } catch (error) {
-      const message = errorMessage(error);
-      return new Response(
-        JSON.stringify({ error: authErrorMessage(message) }),
-        {
-          status: authErrorStatus(message),
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      return errorResponse(error);
     }
   };
 }
@@ -181,7 +230,7 @@ export function createGetImageHandler<
           JSON.stringify({ error: 'Authentication required' }),
           {
             status: 401,
-            headers: { 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           }
         );
       }
@@ -189,19 +238,10 @@ export function createGetImageHandler<
 
       return new Response(JSON.stringify(result), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: jsonHeaders,
       });
     } catch (error) {
-      const message = errorMessage(error);
-      const status = authErrorStatus(message);
-
-      return new Response(
-        JSON.stringify({ error: authErrorMessage(message) }),
-        {
-          status,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      return errorResponse(error);
     }
   };
 }
@@ -228,24 +268,18 @@ export function createDeleteImageHandler<
           JSON.stringify({ error: 'Authentication required' }),
           {
             status: 401,
-            headers: { 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           }
         );
       }
       await core.deleteImage(imageId, user.id);
 
-      return new Response(null, { status: 204 });
+      return new Response(null, {
+        status: 204,
+        headers: { 'Cache-Control': 'no-store' },
+      });
     } catch (error) {
-      const message = errorMessage(error);
-      const status = authErrorStatus(message);
-
-      return new Response(
-        JSON.stringify({ error: authErrorMessage(message) }),
-        {
-          status,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      return errorResponse(error);
     }
   };
 }
@@ -273,7 +307,7 @@ export function createGetImagesForEntityHandler<
           JSON.stringify({ error: 'Authentication required' }),
           {
             status: 401,
-            headers: { 'Content-Type': 'application/json' },
+            headers: jsonHeaders,
           }
         );
       }
@@ -286,17 +320,10 @@ export function createGetImagesForEntityHandler<
 
       return new Response(JSON.stringify(result), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: jsonHeaders,
       });
     } catch (error) {
-      const message = errorMessage(error);
-      return new Response(
-        JSON.stringify({ error: authErrorMessage(message) }),
-        {
-          status: authErrorStatus(message),
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      return errorResponse(error);
     }
   };
 }

@@ -119,6 +119,27 @@ claim that accepted files are decodable images. This is a bounded mutation suite
 testing. Requests have 15-second timeouts, a 90-second overall budget and separate
 cleanup time. The harness prints only case results, never signed URLs or keys.
 
+## Review regressions in 0.2.1
+
+The main Vitest suite runs fault and race tests against both SQLite and PGlite.
+A SQL deletion failure or storage outage must leave an image failed and hidden,
+never ready with a deleted object; retry must remove it. Deletion must claim the
+row before storage effects and prevent a concurrent finalize from restoring
+ready status. Metadata updates losing a deletion race must return not-found.
+These ten cases fail against the prior core and pass with the fixes.
+
+HTTP regressions exercise primitive/malformed JSON, provider/driver/authentication
+errors, both framework adapters and rejected route parameters. Unexpected errors
+return a generic 500; client validation returns 400; private missing/denied reads
+share a 404. Responses containing signed URLs or private metadata use `no-store`.
+Browser XHR abort and timeout events reject the upload and skip finalization;
+this does not add a cancellation API or configure a timeout duration.
+
+Disk reopen examples verify persistence for both databases. The PGlite scaffold
+has also been checked with real `drizzle-kit generate` and `push` using only
+`.env`, then reopening all four tables. Offline migration generation still works
+without `DATABASE_URL`; applying migrations requires a configured connection.
+
 ## Remaining integration layers
 
 Browser CORS, framework routes with a real session provider, network PostgreSQL

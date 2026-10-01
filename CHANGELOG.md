@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 — Unreleased
+
+- Add explicit `init --driver pglite` scaffolding with persistent storage, migrations, native environment loading and local database ignores.
+- Add disk reopen examples for SQLite and PGlite; preserve PostgreSQL defaults.
+- Fail closed during deletion and reject metadata updates that lose a deletion race.
+- Redact unexpected storage/authentication failures across framework handlers, validate malformed request bodies, and prevent caching private upload responses.
+- Settle browser upload abort and timeout events without attempting finalization.
+
 ## 0.2.0 — 2026-10-01
 
 - Add SQLite schemas and database support alongside PostgreSQL; PostgreSQL remains the CLI default.

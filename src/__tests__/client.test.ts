@@ -21,6 +21,7 @@ Object.defineProperty(global, 'crypto', {
 // Mock XMLHttpRequest
 class MockXMLHttpRequest {
   static instances: MockXMLHttpRequest[] = [];
+  static completionEvent = 'load';
   upload: { addEventListener: typeof vi.fn } = { addEventListener: vi.fn() };
   addEventListener = vi.fn();
   open = vi.fn();
@@ -34,7 +35,7 @@ class MockXMLHttpRequest {
     // Simulate successful upload
     setTimeout(() => {
       const loadHandler = this.addEventListener.mock.calls.find(
-        (call) => call[0] === 'load'
+        (call) => call[0] === MockXMLHttpRequest.completionEvent
       )?.[1];
       if (loadHandler) loadHandler();
     }, 10);
@@ -50,6 +51,7 @@ describe('OctoloadClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     MockXMLHttpRequest.instances = [];
+    MockXMLHttpRequest.completionEvent = 'load';
     client = new OctoloadClient({
       baseUrl: 'https://test.com',
       headers: { 'x-test': 'true' },
@@ -61,6 +63,33 @@ describe('OctoloadClient', () => {
   });
 
   describe('uploadFile', () => {
+    it.each(['abort', 'timeout'])(
+      'settles interrupted uploads on %s without finalizing',
+      async (event) => {
+        MockXMLHttpRequest.completionEvent = event;
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            storageKey: 'uploads/interrupted.png',
+            uploadUrl: 'https://storage.test/upload',
+            expiresAt: new Date(),
+          }),
+        });
+        const states = vi.fn();
+        await expect(
+          client.uploadFile(
+            new File(['test'], 'pixel.png', { type: 'image/png' }),
+            { onStateChange: states }
+          )
+        ).rejects.toMatchObject({
+          code: event === 'abort' ? 'UPLOAD_ERROR' : 'NETWORK_ERROR',
+        });
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        expect(states).toHaveBeenLastCalledWith('error');
+      },
+      1000
+    );
+
     it('should handle successful single file upload', async () => {
       const mockFile = new File(['test content'], 'test.jpg', {
         type: 'image/jpeg',

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DrizzleQueryError } from 'drizzle-orm';
+import { presignRequestSchema } from '../types/index.js';
 import type { HandlerOptions } from '../handlers/index.js';
 import {
   createDeleteImageHandler,
@@ -160,7 +161,7 @@ describe('Handlers', () => {
         user: { id: 'owner' },
       }
     );
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(500);
     expect(await response.json()).toEqual({
       error: 'Database operation failed',
     });
@@ -215,7 +216,13 @@ describe('Handlers', () => {
       const handler = createPresignHandler(handlerOptions);
 
       // Mock the core to throw an error for invalid content type
-      mockCore.presign.mockRejectedValue(new Error('Invalid content type'));
+      mockCore.presign.mockRejectedValue(
+        presignRequestSchema.safeParse({
+          filename: 'document.pdf',
+          contentType: 'application/pdf',
+          byteSize: 1024,
+        }).error
+      );
 
       const request = new Request('http://localhost/api/uploads/presign', {
         method: 'POST',
@@ -237,7 +244,7 @@ describe('Handlers', () => {
       expect(response.status).toBe(400);
 
       const data = await response.json();
-      expect(data.error).toBe('Invalid content type');
+      expect(data.error).toBe('Invalid request');
     });
 
     it('should require user authentication when configured', async () => {
@@ -455,7 +462,9 @@ describe('Handlers', () => {
       const handler = createFinalizeHandler(handlerOptions);
 
       // Mock the core finalize method to throw an error
-      mockCore.finalize.mockRejectedValue(new Error('File not found'));
+      mockCore.finalize.mockRejectedValue(
+        new Error('Upload verification failed - file not found in storage')
+      );
 
       const request = new Request('http://localhost/api/uploads/finalize', {
         method: 'POST',
@@ -469,7 +478,9 @@ describe('Handlers', () => {
       expect(response.status).toBe(400);
 
       const data = await response.json();
-      expect(data.error).toBe('File not found');
+      expect(data.error).toBe(
+        'Upload verification failed - file not found in storage'
+      );
     });
   });
 
@@ -709,10 +720,10 @@ describe('Handlers', () => {
       };
 
       const response = await handler(request, context);
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(500);
 
       const data = await response.json();
-      expect(data.error).toBe('Database connection failed');
+      expect(data.error).toBe('Internal server error');
     });
 
     it('should handle storage adapter errors', async () => {
@@ -738,10 +749,10 @@ describe('Handlers', () => {
       };
 
       const response = await handler(request, context);
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(500);
 
       const data = await response.json();
-      expect(data.error).toBe('S3 error');
+      expect(data.error).toBe('Internal server error');
     });
   });
 });

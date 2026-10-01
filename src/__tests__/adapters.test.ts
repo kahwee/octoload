@@ -12,21 +12,33 @@ import {
   createReactRouterPresignHandler,
 } from '../adapters/react-router.js';
 
-// Mock the base handlers
-vi.mock('../handlers/index.js', () => ({
-  createPresignHandler: vi.fn(() =>
-    vi.fn().mockResolvedValue(new Response('presign-response'))
-  ),
-  createFinalizeHandler: vi.fn(() =>
-    vi.fn().mockResolvedValue(new Response('finalize-response'))
-  ),
-  createGetImageHandler: vi.fn(() =>
-    vi.fn().mockResolvedValue(new Response('get-response'))
-  ),
-  createDeleteImageHandler: vi.fn(() =>
-    vi.fn().mockResolvedValue(new Response('delete-response'))
-  ),
-}));
+// Preserve framework argument mapping while simulating base-handler auth resolution.
+// Full response/error boundary coverage lives in adversarial-http.test.ts.
+vi.mock('../handlers/index.js', () => {
+  const factory = (body: string) =>
+    vi.fn(
+      (options: {
+        getUser?: (context: {
+          request: Request;
+          params?: Record<string, string>;
+        }) => Promise<unknown>;
+      }) =>
+        vi.fn(async (...args: unknown[]) => {
+          const context = args.at(-1) as {
+            request: Request;
+            params?: Record<string, string>;
+          };
+          await options.getUser?.(context);
+          return new Response(body);
+        })
+    );
+  return {
+    createPresignHandler: factory('presign-response'),
+    createFinalizeHandler: factory('finalize-response'),
+    createGetImageHandler: factory('get-response'),
+    createDeleteImageHandler: factory('delete-response'),
+  };
+});
 
 describe('Framework Adapters', () => {
   const mockHandlerOptions = {

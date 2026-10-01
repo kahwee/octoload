@@ -25,13 +25,16 @@ export interface NextJSHandlerOptions extends Omit<HandlerOptions, 'getUser'> {
 
 export function createNextJSPresignHandler(options: NextJSHandlerOptions) {
   const { getUser, ...baseOptions } = options;
-  const baseHandler = createPresignHandler(baseOptions);
+  const baseHandler = createPresignHandler({
+    ...baseOptions,
+    getUser: getUser
+      ? (context) => getUser(context.request as NextRequest)
+      : undefined,
+  });
 
   return async (request: NextRequest) => {
-    const user = getUser ? await getUser(request) : null;
     const context: HandlerContext = {
       request,
-      user: user ? { ...user } : undefined,
     };
 
     return baseHandler(request, context);
@@ -40,54 +43,81 @@ export function createNextJSPresignHandler(options: NextJSHandlerOptions) {
 
 export function createNextJSFinalizeHandler(options: NextJSHandlerOptions) {
   const { getUser, ...baseOptions } = options;
-  const baseHandler = createFinalizeHandler(baseOptions);
+  const baseHandler = createFinalizeHandler({
+    ...baseOptions,
+    getUser: getUser
+      ? (context) => getUser(context.request as NextRequest)
+      : undefined,
+  });
 
   return async (request: NextRequest) => {
-    const user = getUser ? await getUser(request) : null;
     return baseHandler(request, {
       request,
-      user: user ? { ...user } : undefined,
     });
   };
 }
 
 export function createNextJSGetImageHandler(options: NextJSHandlerOptions) {
   const { getUser, ...baseOptions } = options;
-  const baseHandler = createGetImageHandler(baseOptions);
+  const baseHandler = createGetImageHandler({
+    ...baseOptions,
+    getUser: getUser
+      ? (context) => getUser(context.request as NextRequest)
+      : undefined,
+  });
 
   return async (
     request: NextRequest,
     { params }: { params: { imageId: string } | Promise<{ imageId: string }> }
   ) => {
-    const resolvedParams = await params;
-    const user = getUser ? await getUser(request) : null;
-    const context: HandlerContext = {
-      request,
-      user: user ? { ...user } : undefined,
-      params: resolvedParams,
-    };
-
-    return baseHandler(request, resolvedParams.imageId, context);
+    try {
+      const resolvedParams = await params;
+      const context: HandlerContext = {
+        request,
+        params: resolvedParams,
+      };
+      return await baseHandler(request, resolvedParams.imageId, context);
+    } catch {
+      return new Response(JSON.stringify({ error: 'Internal server error' }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
   };
 }
 
 export function createNextJSDeleteImageHandler(options: NextJSHandlerOptions) {
   const { getUser, ...baseOptions } = options;
-  const baseHandler = createDeleteImageHandler(baseOptions);
+  const baseHandler = createDeleteImageHandler({
+    ...baseOptions,
+    getUser: getUser
+      ? (context) => getUser(context.request as NextRequest)
+      : undefined,
+  });
 
   return async (
     request: NextRequest,
     { params }: { params: { imageId: string } | Promise<{ imageId: string }> }
   ) => {
-    const resolvedParams = await params;
-    const user = getUser ? await getUser(request) : null;
-    const context: HandlerContext = {
-      request,
-      user: user ? { ...user } : undefined,
-      params: resolvedParams,
-    };
-
-    return baseHandler(request, resolvedParams.imageId, context);
+    try {
+      const resolvedParams = await params;
+      const context: HandlerContext = {
+        request,
+        params: resolvedParams,
+      };
+      return await baseHandler(request, resolvedParams.imageId, context);
+    } catch {
+      return new Response(JSON.stringify({ error: 'Internal server error' }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
   };
 }
 

@@ -4,6 +4,11 @@ Upload images straight from your browser to **Amazon S3 or Cloudflare R2**.
 Octoload connects a lightweight browser client to your app’s authentication,
 PostgreSQL or SQLite metadata, and framework handlers. You own the storage and the data.
 
+**This checkout is 0.2.1, unreleased.** npm 0.2.0 includes the database core;
+the new PGlite scaffold and review fixes are on main. To try them, build the
+checkout with the pinned pnpm and run `pnpm pack --out /tmp/octoload-0.2.1.tgz`,
+then install that tarball in your app.
+
 ## Install
 
 Use Node.js 24+. Bun is optional. Choose PostgreSQL or SQLite for metadata.
@@ -24,7 +29,7 @@ fill in the server environment, and apply the generated schema using the
 
 For SQLite, use `--dialect sqlite` with both `init` and `generate`.
 See the [database guide](https://github.com/kahwee/octoload/blob/main/docs/databases.md)
-for SQLite and PGlite connections and runnable examples.
+for SQLite and PGlite connections, `init --driver pglite`, and runnable examples.
 
 ## Upload an image
 

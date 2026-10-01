@@ -403,13 +403,36 @@ export class OctoloadCore<
       throw new Error('Access denied');
     }
 
+    // Hide the record before touching storage. A failed delete must not leave a
+    // ready record pointing to missing bytes, and finalize must lose this race.
+    const claimed = await this.db
+      .update(this.getImagesTable())
+      .set({ status: 'failed', updatedAt: new Date() })
+      .where(
+        this.and(
+          this.eq(cols.id, imageId),
+          this.eq(cols.ownerId, userId),
+          this.eq(cols.status, image.status)
+        )
+      )
+      .returning();
+    if (claimed.length === 0) {
+      throw new Error('Image not found');
+    }
+
     // Delete from storage
     await this.storage.deleteObject(image.storageKey);
 
     // Delete from database
     await this.db
       .delete(this.getImagesTable())
-      .where(this.eq(cols.id, imageId));
+      .where(
+        this.and(
+          this.eq(cols.id, imageId),
+          this.eq(cols.ownerId, userId),
+          this.eq(cols.status, 'failed')
+        )
+      );
   }
 
   /**
@@ -499,9 +522,13 @@ export class OctoloadCore<
         ...safeMetadata,
         updatedAt: new Date(),
       })
-      .where(this.eq(cols.id, imageId))
+      .where(this.and(this.eq(cols.id, imageId), this.eq(cols.ownerId, userId)))
       .returning();
     const updatedImage = updateResults[0] as ImageRecord;
+
+    if (!updatedImage) {
+      throw new Error('Image not found');
+    }
 
     return updatedImage;
   }

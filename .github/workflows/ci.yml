@@ -68,6 +68,8 @@ jobs:
         run: |
           node examples/database.mjs sqlite
           node examples/database.mjs pglite
+          node examples/persistent-database.mjs sqlite
+          node examples/persistent-database.mjs pglite
 
       - name: Upload coverage reports to Codecov
         if: matrix.node-version == 24

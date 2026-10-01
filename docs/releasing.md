@@ -16,6 +16,13 @@ Next.js/React Router scaffolds. Decoding, checksum verification, multipart serve
 workflows, hooks, tag writes, custom storage providers and MySQL remain future
 work. See [accepted tradeoffs](#accepted-scope-and-future-work).
 
+## Next prepared version
+
+The checkout targets **0.2.1 (unreleased)**. It adds explicit PGlite scaffolding,
+disk persistence examples, failed-delete and metadata-race fixes, and controlled
+HTTP error handling. npm `latest` remains the verified 0.2.0 release above. No
+0.2.1 publication is authorized by a review request alone.
+
 ## Before an authorized release
 
 1. Use Node 24+ and the exact pnpm version in `package.json`. Install with the

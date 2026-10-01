@@ -17,7 +17,9 @@ PostgreSQL/SQLite schema and scaffold CLI. Start with [README.md](README.md) and
   multipart processing or image-byte validation as implemented behavior.
 - For source/dependency changes, run the full verification command in
   `CONTRIBUTING.md`, including coverage, PGlite, and built package/scaffold smoke tests.
-- Keep PostgreSQL as the CLI default. SQLite connections must enable foreign
+- Keep PostgreSQL as the CLI default; PGlite uses its schema with `--driver pglite`.
+  Preserve offline migration generation and existing app DB files.
+  SQLite connections must enable foreign
   keys; keep Date/boolean row values compatible and test generated migrations.
 - For README edits, run `pnpm test:docs` and check local links. It parses the
   TypeScript/JSON examples and typechecks the browser component; uploads and

@@ -326,6 +326,13 @@ export class OctoloadClient {
         reject(new NetworkError('Network error during upload'));
       });
 
+      xhr.addEventListener('abort', () => {
+        reject(new UploadError('Upload aborted'));
+      });
+      xhr.addEventListener('timeout', () => {
+        reject(new NetworkError('Upload timed out'));
+      });
+
       if (!presignResponse.uploadUrl) {
         reject(
           new ValidationError('No upload URL provided in presign response')

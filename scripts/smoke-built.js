@@ -58,6 +58,7 @@ try {
     'examples/README.md',
     'examples/presign.mjs',
     'examples/database.mjs',
+    'examples/persistent-database.mjs',
   ]) {
     assert.ok(
       entries.includes(`package/${path}`),
@@ -202,6 +203,26 @@ for (const name of ['octoload', 'octoload/client', 'octoload/nextjs', 'octoload/
     assert.equal(
       readFileSync(join(r2Project, '.env.example'), 'utf8'),
       environment
+    );
+
+    const pgliteProject = join(project, 'pglite-app');
+    mkdirSync(pgliteProject);
+    runCli(
+      ['init', '--framework', 'nextjs', '--driver', 'pglite'],
+      pgliteProject
+    );
+    runCli(['generate'], pgliteProject);
+    assert.match(
+      readFileSync(join(pgliteProject, 'drizzle.config.ts'), 'utf8'),
+      /driver: 'pglite'/
+    );
+    assert.match(
+      readFileSync(join(pgliteProject, 'src/db/index.ts'), 'utf8'),
+      /new PGlite\(dataDir\)/
+    );
+    assert.match(
+      readFileSync(join(pgliteProject, '.env.example'), 'utf8'),
+      /DATABASE_URL=\.\/uploads-pglite/
     );
 
     const sqliteProject = join(project, 'sqlite-app');

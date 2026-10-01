@@ -27,13 +27,17 @@ export function createReactRouterPresignHandler(
   options: ReactRouterHandlerOptions
 ) {
   const { getUser, ...baseOptions } = options;
-  const baseHandler = createPresignHandler(baseOptions);
+  const baseHandler = createPresignHandler({
+    ...baseOptions,
+    getUser: getUser
+      ? (context) =>
+          getUser({ request: context.request, params: context.params })
+      : undefined,
+  });
 
   return async ({ request, params }: ActionFunctionArgs) => {
-    const user = getUser ? await getUser({ request, params }) : null;
     const context: HandlerContext = {
       request,
-      user: user ? { ...user } : undefined,
       params: params as Record<string, string>,
     };
 
@@ -45,13 +49,17 @@ export function createReactRouterFinalizeHandler(
   options: ReactRouterHandlerOptions
 ) {
   const { getUser, ...baseOptions } = options;
-  const baseHandler = createFinalizeHandler(baseOptions);
+  const baseHandler = createFinalizeHandler({
+    ...baseOptions,
+    getUser: getUser
+      ? (context) =>
+          getUser({ request: context.request, params: context.params })
+      : undefined,
+  });
 
   return async ({ request, params }: ActionFunctionArgs) => {
-    const user = getUser ? await getUser({ request, params }) : null;
     return baseHandler(request, {
       request,
-      user: user ? { ...user } : undefined,
       params: params as Record<string, string>,
     });
   };
@@ -61,7 +69,13 @@ export function createReactRouterGetImageHandler(
   options: ReactRouterHandlerOptions
 ) {
   const { getUser, ...baseOptions } = options;
-  const baseHandler = createGetImageHandler(baseOptions);
+  const baseHandler = createGetImageHandler({
+    ...baseOptions,
+    getUser: getUser
+      ? (context) =>
+          getUser({ request: context.request, params: context.params })
+      : undefined,
+  });
 
   return async ({ request, params }: LoaderFunctionArgs) => {
     const imageId = params?.imageId;
@@ -69,10 +83,8 @@ export function createReactRouterGetImageHandler(
       return new Response('Image ID required', { status: 400 });
     }
 
-    const user = getUser ? await getUser({ request, params }) : null;
     const context: HandlerContext = {
       request,
-      user: user ? { ...user } : undefined,
       params: params as Record<string, string>,
     };
 
@@ -84,7 +96,13 @@ export function createReactRouterDeleteImageHandler(
   options: ReactRouterHandlerOptions
 ) {
   const { getUser, ...baseOptions } = options;
-  const baseHandler = createDeleteImageHandler(baseOptions);
+  const baseHandler = createDeleteImageHandler({
+    ...baseOptions,
+    getUser: getUser
+      ? (context) =>
+          getUser({ request: context.request, params: context.params })
+      : undefined,
+  });
 
   return async ({ request, params }: ActionFunctionArgs) => {
     const imageId = params?.imageId;
@@ -92,10 +110,8 @@ export function createReactRouterDeleteImageHandler(
       return new Response('Image ID required', { status: 400 });
     }
 
-    const user = getUser ? await getUser({ request, params }) : null;
     const context: HandlerContext = {
       request,
-      user: user ? { ...user } : undefined,
       params: params as Record<string, string>,
     };
 

@@ -1,6 +1,6 @@
 {
   "name": "octoload",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "Browser-to-S3/R2 image uploads with PostgreSQL or SQLite metadata and framework scaffolds",
   "main": "dist/index.js",
@@ -75,7 +75,8 @@
     "direct-upload",
     "storage",
     "sqlite",
-    "postgresql"
+    "postgresql",
+    "pglite"
   ],
   "author": "KahWee Teng <tengkahwee@gmail.com>",
   "license": "MIT",

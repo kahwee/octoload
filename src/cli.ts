@@ -39,6 +39,7 @@ program
     'nextjs'
   )
   .option('--auth <provider>', 'Auth: custom or better-auth', 'custom')
+  .option('--driver <driver>', 'Optional PostgreSQL driver: pglite')
   .option('--dialect <dialect>', 'Database: postgresql or sqlite', 'postgresql')
   .action(initCommand);
 
