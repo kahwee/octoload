@@ -16,18 +16,22 @@ Next.js/React Router scaffolds. Decoding, checksum verification, multipart serve
 workflows, hooks, tag writes, custom storage providers and MySQL remain future
 work. See [accepted tradeoffs](#accepted-scope-and-future-work).
 
-## Next prepared version
+## 0.2.1 release scope
 
-The checkout targets **0.2.1 (unreleased)**. It adds explicit PGlite scaffolding,
-disk persistence examples, failed-delete and metadata-race fixes, and controlled
-HTTP error handling. npm `latest` remains the verified 0.2.0 release above. No
-0.2.1 publication is authorized by a review request alone.
+**0.2.1 was published on 2026-10-01 and verified as npm `latest`.** The registry
+tarball matched the reviewed artifact byte-for-byte and passed SHA512 integrity.
+The GitHub release is [v0.2.1](https://github.com/kahwee/octoload/releases/tag/v0.2.1).
+
+0.2.1 adds explicit PGlite scaffolding, disk persistence examples, failed-delete
+and metadata-race fixes, and controlled HTTP error handling. Its release gates
+include 294 tests, Node 24 checks, packed consumer checks, actual R2 lifecycles
+with both SQLite and PGlite, and 64 rejected signature mutations.
 
 ## Before an authorized release
 
 1. Use Node 24+ and the exact pnpm version in `package.json`. Install with the
    frozen lockfile and run the full [contribution checks](../CONTRIBUTING.md).
-2. Review the actual tarball with `pnpm pack --out /tmp/octoload-0.2.0.tgz`.
+2. Review the actual tarball with `pnpm pack --out /tmp/octoload-0.2.1.tgz`.
    `test:package` packs, extracts, and loads the public exports from a temporary
    consumer, checks the CLI version/scaffolds, and verifies shipped guides and
    the signing example. It does not contact a bucket or publish anything.
@@ -88,11 +92,11 @@ and [test coverage](testing.md) for the verified boundaries.
 
 ## Publishing setup verified
 
-The `kahwee` npm account is listed as the maintainer. Use interactive npm authentication for local publishing. The 0.2.0 tarball passed this non-publishing rehearsal:
+The `kahwee` npm account is listed as the maintainer. Use interactive npm authentication for local publishing. Rehearse the reviewed tarball without publishing:
 
 ```sh
-pnpm pack --out /tmp/octoload-0.2.0.tgz
-pnpm publish /tmp/octoload-0.2.0.tgz --dry-run --ignore-scripts --access public --tag next
+pnpm pack --out /tmp/octoload-0.2.1.tgz
+pnpm publish /tmp/octoload-0.2.1.tgz --dry-run --ignore-scripts --access public --tag next
 ```
 
 Use the pinned pnpm to publish: direct `npm publish` in this checkout fails the

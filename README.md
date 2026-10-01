@@ -4,10 +4,7 @@ Upload images straight from your browser to **Amazon S3 or Cloudflare R2**.
 Octoload connects a lightweight browser client to your app’s authentication,
 PostgreSQL or SQLite metadata, and framework handlers. You own the storage and the data.
 
-**This checkout is 0.2.1, unreleased.** npm 0.2.0 includes the database core;
-the new PGlite scaffold and review fixes are on main. To try them, build the
-checkout with the pinned pnpm and run `pnpm pack --out /tmp/octoload-0.2.1.tgz`,
-then install that tarball in your app.
+Version **0.2.1** adds persistent PGlite scaffolding and stronger upload error handling.
 
 ## Install
 
@@ -16,7 +13,7 @@ Use Node.js 24+. Bun is optional. Choose PostgreSQL or SQLite for metadata.
 In your existing Next.js app with PostgreSQL, Drizzle, and Better Auth:
 
 ```bash
-pnpm add octoload@0.2.0 drizzle-orm pg
+pnpm add octoload@0.2.1 drizzle-orm pg
 pnpm add -D drizzle-kit @types/pg
 pnpm exec octoload init --framework nextjs --adapter s3 --auth better-auth
 pnpm exec octoload generate --output src/db/upload-schema.ts

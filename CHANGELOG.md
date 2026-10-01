@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.1 — Unreleased
+## 0.2.1 — 2026-10-01
 
 - Add explicit `init --driver pglite` scaffolding with persistent storage, migrations, native environment loading and local database ignores.
 - Add disk reopen examples for SQLite and PGlite; preserve PostgreSQL defaults.

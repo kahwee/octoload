@@ -46,8 +46,8 @@ SQLite writes serialize; test contention under your application's workload.
 
 ## PGlite in an existing app
 
-PGlite uses the PostgreSQL schema. The explicit scaffold below is new in the
-unreleased 0.2.1 checkout; install its source tarball as described in the [README](../README.md#install).
+PGlite uses the PostgreSQL schema. The explicit scaffold below is available in
+0.2.1; install it as described in the [README](../README.md#install).
 The 0.2.0 core already accepts a manually connected PGlite Drizzle database.
 
 ```sh
