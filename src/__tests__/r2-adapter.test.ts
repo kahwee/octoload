@@ -133,6 +133,18 @@ describe('R2StorageAdapter (Cloudflare R2)', () => {
   });
 
   describe('R2 multipart uploads', () => {
+    it.each([NaN, 1.5, Infinity, -Infinity, 0, -1, 10001])(
+      'rejects invalid part count %s before allocating an upload',
+      async (partCount) => {
+        const mockSend = vi.fn();
+        adapter['client'].send = mockSend;
+        await expect(
+          adapter.getMultipartUpload('invalid-upload', 'image/png', partCount)
+        ).rejects.toThrow('Part count must be an integer between 1 and 10000');
+        expect(mockSend).not.toHaveBeenCalled();
+      }
+    );
+
     it('should handle R2 multipart upload initialization', async () => {
       const mockSend = vi.fn().mockResolvedValue({
         UploadId: 'r2-multipart-upload-id',

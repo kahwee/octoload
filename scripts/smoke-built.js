@@ -178,6 +178,32 @@ for (const name of ['octoload', 'octoload/client', 'octoload/nextjs', 'octoload/
       readFileSync(join(r2Project, 'app/db/upload-schema.ts'), 'utf8'),
       /ownerId: varchar\('owner_id', \{ length: 255 \}\)/
     );
+    writeFileSync(
+      join(r2Project, 'package.json'),
+      JSON.stringify({
+        name: 'consumer',
+        dependencies: { '@aws-sdk/client-s3': '3.1000.0' },
+      })
+    );
+    runCli(['add', 'r2'], r2Project);
+    const consumerManifest = JSON.parse(
+      readFileSync(join(r2Project, 'package.json'), 'utf8')
+    );
+    assert.equal(
+      consumerManifest.dependencies['@aws-sdk/client-s3'],
+      '3.1000.0'
+    );
+    assert.equal(
+      consumerManifest.dependencies['@aws-sdk/s3-request-presigner'],
+      manifest.dependencies['@aws-sdk/s3-request-presigner']
+    );
+    const environment = readFileSync(join(r2Project, '.env.example'), 'utf8');
+    runCli(['add', 'r2'], r2Project);
+    assert.equal(
+      readFileSync(join(r2Project, '.env.example'), 'utf8'),
+      environment
+    );
+
     const sqliteProject = join(project, 'sqlite-app');
     mkdirSync(sqliteProject);
     runCli(

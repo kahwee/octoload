@@ -1,17 +1,15 @@
 # Release checklist
 
-## Source and npm are separate
+## 0.2.0 release scope
 
-The source manifest and changelog target **0.2.0 (unreleased)**. npm `latest` is
-**0.1.8**, verified on 2026-10-01. The npm README still describes unsupported
-features and older CLI output. A GitHub push does not update that README or
-publish the fixes. Until a release is explicitly approved, use the source
-package steps in the [README](../README.md#release-status-and-install).
+0.2.0 adds SQLite alongside PostgreSQL and includes the earlier upload hardening.
+The source and release artifact are verified separately from npm publication.
+Mark the changelog released only after the registry confirms success.
 
-Current scope is browser single-PUT uploads to S3/R2, PostgreSQL or SQLite metadata, and
-Next.js/React Router scaffolds. Multipart server workflows, checksum verification,
-image-byte validation, hooks, tag writes, custom storage providers and MySQL are not implemented. A client-supplied checksum is metadata, not proof
-that the uploaded bytes match it.
+Current scope is single-PUT S3/R2 image uploads, PostgreSQL/SQLite metadata, and
+Next.js/React Router scaffolds. Decoding, checksum verification, multipart server
+workflows, hooks, tag writes, custom storage providers and MySQL remain future
+work. See [accepted tradeoffs](#accepted-scope-and-future-work).
 
 ## Before an authorized release
 
@@ -31,8 +29,7 @@ that the uploaded bytes match it.
 5. Obtain explicit authorization to publish the reviewed artifact. Use the
    account's normal npm authentication flow; never put credentials in the repo.
 6. After publication, verify the npm version/dist-tag, downloaded tarball,
-   rendered README, package exports, and CLI version. Then replace the temporary
-   source-package install instructions with the verified npm release.
+   rendered README, package exports, and CLI version. Verify the install instructions match the published version.
 
 ## Repository About text
 
@@ -64,7 +61,7 @@ this file does not update those settings.
    representation, cleanup retries, and upgrade instructions.
 5. Publish only after explicit authorization and successful gates. Verify npm's
    artifact, imports, CLI version and generated schemas, then tag/changelog using
-   the repository's release convention. Until then, 0.2.0 is prepared and unreleased.
+   the repository's release convention. Keep release candidates distinct from published versions.
 
 Existing PostgreSQL applications keep their schema and migrations. SQLite is a
 choice for new databases; cross-engine data migration needs a separate reviewed
@@ -74,8 +71,7 @@ and [test coverage](testing.md) for the verified boundaries.
 
 ## Publishing setup verified
 
-The `kahwee` npm account is listed as the maintainer. Local npm authentication
-is not configured. The 0.2.0 tarball passed this non-publishing rehearsal:
+The `kahwee` npm account is listed as the maintainer. Use interactive npm authentication for local publishing. The 0.2.0 tarball passed this non-publishing rehearsal:
 
 ```sh
 pnpm pack --out /tmp/octoload-0.2.0.tgz

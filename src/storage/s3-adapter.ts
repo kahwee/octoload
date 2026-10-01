@@ -126,8 +126,8 @@ export class S3StorageAdapter {
     parts: { partNumber: number; uploadUrl: string }[];
   }> {
     // Validate part count (S3 limits: 1-10,000 parts)
-    if (partCount < 1 || partCount > 10000) {
-      throw new Error('Part count must be between 1 and 10000');
+    if (!Number.isInteger(partCount) || partCount < 1 || partCount > 10000) {
+      throw new Error('Part count must be an integer between 1 and 10000');
     }
 
     // Initialize multipart upload

@@ -5,6 +5,7 @@ import type {
 } from '../types/index.js';
 import type { DrizzleDB, DrizzleSchema } from './core.js';
 import { OctoloadCore } from './core.js';
+import { DrizzleError, DrizzleQueryError } from 'drizzle-orm';
 
 export interface HandlerContext {
   request: Request;
@@ -37,8 +38,24 @@ async function resolveUser(
 
 function authErrorStatus(message: string): number {
   if (message === 'Authentication required') return 401;
-  if (message === 'Image not found' || message === 'Access denied') return 404;
+  if (
+    message === 'Image not found' ||
+    message === 'Access denied' ||
+    message === 'Image record not found for storage key'
+  )
+    return 404;
   return 400;
+}
+
+function authErrorMessage(message: string): string {
+  return authErrorStatus(message) === 404 ? 'Image not found' : message;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof DrizzleError || error instanceof DrizzleQueryError) {
+    return 'Database operation failed';
+  }
+  return error instanceof Error ? error.message : 'Unknown error';
 }
 
 export function createPresignHandler<
@@ -89,7 +106,7 @@ export function createPresignHandler<
         headers: { 'Content-Type': 'application/json' },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
+      const message = errorMessage(error);
       return new Response(JSON.stringify({ error: message }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -130,11 +147,14 @@ export function createFinalizeHandler<
         headers: { 'Content-Type': 'application/json' },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return new Response(JSON.stringify({ error: message }), {
-        status: authErrorStatus(message),
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const message = errorMessage(error);
+      return new Response(
+        JSON.stringify({ error: authErrorMessage(message) }),
+        {
+          status: authErrorStatus(message),
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
   };
 }
@@ -172,13 +192,16 @@ export function createGetImageHandler<
         headers: { 'Content-Type': 'application/json' },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
+      const message = errorMessage(error);
       const status = authErrorStatus(message);
 
-      return new Response(JSON.stringify({ error: message }), {
-        status,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ error: authErrorMessage(message) }),
+        {
+          status,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
   };
 }
@@ -213,13 +236,16 @@ export function createDeleteImageHandler<
 
       return new Response(null, { status: 204 });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
+      const message = errorMessage(error);
       const status = authErrorStatus(message);
 
-      return new Response(JSON.stringify({ error: message }), {
-        status,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ error: authErrorMessage(message) }),
+        {
+          status,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
   };
 }
@@ -263,11 +289,14 @@ export function createGetImagesForEntityHandler<
         headers: { 'Content-Type': 'application/json' },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return new Response(JSON.stringify({ error: message }), {
-        status: authErrorStatus(message),
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const message = errorMessage(error);
+      return new Response(
+        JSON.stringify({ error: authErrorMessage(message) }),
+        {
+          status: authErrorStatus(message),
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
   };
 }

@@ -64,7 +64,7 @@ export const images = pgTable('images', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Upload sessions for multipart uploads
+// Optional session records; the core single-PUT flow does not write this table
 export const uploadSessions = pgTable('upload_sessions', {
   id: uuid('id')
     .primaryKey()

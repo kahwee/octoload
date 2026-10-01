@@ -1,7 +1,7 @@
 # Repository guidance
 
 Octoload provides a browser upload client, Next.js/React Router handlers, and a
-PostgreSQL schema/scaffold CLI. Start with [README.md](README.md) and
+PostgreSQL/SQLite schema and scaffold CLI. Start with [README.md](README.md) and
 [CONTRIBUTING.md](CONTRIBUTING.md); storage variants are in [docs/integrations.md](docs/integrations.md).
 
 - Use Node 24+ and the exact pnpm version in `package.json`. Preserve the committed

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DrizzleQueryError } from 'drizzle-orm';
 import type { HandlerOptions } from '../handlers/index.js';
 import {
   createDeleteImageHandler,
@@ -96,6 +97,73 @@ describe('Handlers', () => {
         },
       },
     };
+  });
+
+  it.each(['get', 'delete', 'finalize'] as const)(
+    '%s conceals whether a private record exists',
+    async (kind) => {
+      const request = new Request('http://localhost/api/images/private', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storageKey: 'uploads/private.png' }),
+      });
+      const context = { request, user: { id: 'stranger' } };
+      const method =
+        kind === 'get'
+          ? mockCore.getImage
+          : kind === 'delete'
+            ? mockCore.deleteImage
+            : mockCore.finalize;
+      const invoke =
+        kind === 'get'
+          ? () =>
+              createGetImageHandler(handlerOptions)(request, 'private', context)
+          : kind === 'delete'
+            ? () =>
+                createDeleteImageHandler(handlerOptions)(
+                  request,
+                  'private',
+                  context
+                )
+            : () =>
+                createFinalizeHandler(handlerOptions)(request.clone(), context);
+      method.mockRejectedValueOnce(new Error('Access denied'));
+      const forbidden = await invoke();
+      method.mockRejectedValueOnce(
+        new Error(
+          kind === 'finalize'
+            ? 'Image record not found for storage key'
+            : 'Image not found'
+        )
+      );
+      const absent = await invoke();
+      expect(forbidden.status).toBe(404);
+      expect(absent.status).toBe(404);
+      expect(await forbidden.json()).toEqual(await absent.json());
+    }
+  );
+
+  it('redacts SQL and parameters from Drizzle query failures', async () => {
+    mockCore.getImage.mockRejectedValueOnce(
+      new DrizzleQueryError(
+        'select private_metadata from images where id = $1',
+        ['sensitive-parameter'],
+        new Error('provider database failure')
+      )
+    );
+    const request = new Request('http://localhost/api/images/private');
+    const response = await createGetImageHandler(handlerOptions)(
+      request,
+      'private',
+      {
+        request,
+        user: { id: 'owner' },
+      }
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'Database operation failed',
+    });
   });
 
   describe('createPresignHandler', () => {
@@ -240,7 +308,7 @@ describe('Handlers', () => {
       expect(mockCore.presign).not.toHaveBeenCalled();
     });
 
-    it('should handle multipart uploads for large files', async () => {
+    it('serializes a mocked multipart response without exercising core multipart support', async () => {
       const handler = createPresignHandler(handlerOptions);
 
       const largeFileSize = 100 * 1024 * 1024; // 100MB
@@ -509,7 +577,7 @@ describe('Handlers', () => {
       expect(response.status).toBe(404);
 
       const data = await response.json();
-      expect(data.error).toBe('Access denied');
+      expect(data.error).toBe('Image not found');
     });
 
     it('should return 404 for non-existent image', async () => {
@@ -585,7 +653,7 @@ describe('Handlers', () => {
       expect(response.status).toBe(404);
 
       const data = await response.json();
-      expect(data.error).toBe('Access denied');
+      expect(data.error).toBe('Image not found');
     });
 
     it('should require authentication', async () => {

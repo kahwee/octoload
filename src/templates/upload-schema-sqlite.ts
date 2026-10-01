@@ -59,7 +59,7 @@ export const images = sqliteTable(
   ]
 );
 
-// Upload sessions for multipart uploads
+// Optional session records; the core single-PUT flow does not write this table
 export const uploadSessions = sqliteTable('upload_sessions', {
   id: text('id')
     .primaryKey()

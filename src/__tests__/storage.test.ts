@@ -92,11 +92,11 @@ describe('S3StorageAdapter', () => {
     it('should validate part count limits', async () => {
       await expect(
         adapter.getMultipartUpload('key', 'image/jpeg', 0, 3600)
-      ).rejects.toThrow('Part count must be between 1 and 10000');
+      ).rejects.toThrow('Part count must be an integer between 1 and 10000');
 
       await expect(
         adapter.getMultipartUpload('key', 'image/jpeg', 10001, 3600)
-      ).rejects.toThrow('Part count must be between 1 and 10000');
+      ).rejects.toThrow('Part count must be an integer between 1 and 10000');
     });
   });
 

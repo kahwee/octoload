@@ -45,7 +45,7 @@ export type DrizzleSchema =
 
 /**
  * Core implementation of Octoload functionality.
- * Complete working implementation with R2/S3 storage and database operations.
+ * Single-PUT uploads with R2/S3 object metadata checks and Drizzle records.
  *
  * @template TDb - Your specific Drizzle database instance type
  * @template TSchema - Your specific schema type with upload tables
