@@ -113,7 +113,9 @@ tries an empty body and unsigned/forged reads, and races 12 PUTs against one key
 Exactly one PUT must win; the other eleven must return 412 and leave winning
 bytes unchanged. Rejected mutations must leave their fresh object absent. It
 also confirms the content-validation boundary: same-size non-image bytes are
-accepted. This is a bounded mutation suite, not exhaustive brute force or load
+accepted. This is an intentional lightweight-upload tradeoff, documented in
+[content validation](integrations.md#content-validation-tradeoff), rather than a
+claim that accepted files are decodable images. This is a bounded mutation suite, not exhaustive brute force or load
 testing. Requests have 15-second timeouts, a 90-second overall budget and separate
 cleanup time. The harness prints only case results, never signed URLs or keys.
 

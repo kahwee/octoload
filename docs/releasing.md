@@ -96,12 +96,17 @@ short-lived OIDC credentials and automatic provenance. The workflow and npm
 trusted-publisher binding are not configured yet. Do not add persistent R2 or npm
 credentials to the repository while setting this up.
 
-## Next quality milestone
+## Accepted scope and future work
 
-Prioritize validation before ready: download within a byte budget, decode only
-allowed raster formats with pixel/frame/time limits, and reject or quarantine
-invalid content. Full decoding is stronger than file signatures or metadata
-inspection. It adds bandwidth, CPU, memory and latency, so it needs an explicit
-resource policy and failure/retry tests. Then exercise browser CORS and real
-session-authenticated framework routes through upload, finalize, read and delete.
-Keep further database/provider expansion behind those checks.
+0.2.0 deliberately validates object metadata rather than decoding image bytes.
+Same-size non-image payloads can be accepted; the live adversarial harness proves
+this boundary. Keeping the flow lightweight avoids decoder dependencies, server
+downloads and resource policies. See the [content-validation tradeoff](integrations.md#content-validation-tradeoff).
+Decoding is future work, not a gate for this release. Keep private defaults,
+authentication, and configured size/type limits; applications can add validation
+before processing or publishing untrusted content.
+
+Focus remaining integration work on browser CORS and real session-authenticated
+framework routes through upload, finalize, read and delete. Consider an optional,
+bounded image validator later, with explicit pixel/frame/time limits and failure
+handling, when applications need it.

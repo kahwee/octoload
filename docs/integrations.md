@@ -78,6 +78,21 @@ This cleans up single PUT uploads. If you use the storage adapter's lower-level 
 - The schema generator emits PostgreSQL tables by default and SQLite tables with `--dialect sqlite`; see [database setup](databases.md). The `upload_sessions`, `asset_variants`, and `image_tags` tables are available in the schema, but the current upload flow writes only `images`. Image processing, tag writes, hooks, custom storage adapters and MySQL are not implemented by the core flow.
 
 
+## Content-validation tradeoff
+
+Octoload checks declared size and content type, without downloading or decoding
+image bytes. This keeps the direct-upload flow lightweight and avoids image
+processing dependencies, server bandwidth, and decoder resource management.
+An authenticated uploader can therefore store arbitrary bytes with the expected
+size and an allowed image content type; even a `ready` image can be unreadable.
+Private ownership checks and size limits still apply, but do not validate content.
+
+Keep upload routes authenticated, use private storage by default, and set size
+and type limits appropriate for your app. Applications that process or publish
+untrusted images should add their own bounded validation before those operations.
+Octoload's optional decoding/validation layer is deferred to a future feature;
+it is not part of the 0.2.0 release scope.
+
 ## Upload integrity and upgrades
 
 Single-PUT upload URLs now require a signed `If-None-Match: *` header. A repeat PUT
