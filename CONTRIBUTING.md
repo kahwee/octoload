@@ -60,7 +60,9 @@ command above. Dependabot tracks GitHub Actions; pnpm package updates are
 maintained in the repository.
 
 For provider-backed upload integrity checks, see the [adversarial test harness](docs/testing.md).
-The live harness is opt-in and requires a disposable S3 or R2 bucket.
+The live harnesses are opt-in and require a disposable bucket. `test:storage:cf`
+uses an authenticated Cloudflare `cf` CLI for private R2 storage checks;
+`test:storage:live` uses S3 credentials to check signed uploads and replay protection.
 
 ## Code and reviews
 

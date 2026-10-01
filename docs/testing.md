@@ -5,6 +5,32 @@ before pushing. Unit and handler tests exercise ownership, metadata validation,
 upload state, and client behavior; package smoke tests check built exports and
 generated scaffolds. Coverage shows exercised branches, not provider fidelity.
 
+## Authenticated Cloudflare CLI smoke test
+
+With the authenticated `cf` CLI installed, set `CLOUDFLARE_ACCOUNT_ID` and
+`OCTOLOAD_TEST_BUCKET` to an explicit account and dedicated private test bucket,
+then run:
+
+```bash
+pnpm test:storage:cf
+```
+
+This uses `cf`, not Wrangler. It checks that r2.dev and custom domain public
+access are disabled, uploads a small PNG, downloads and compares every binary
+byte, deletes the test object, and requires provider HTTP 404/code 10007 on the
+next read. Each run uses a random `octoload-cli-harness/` key and a temporary
+file with mode 0600. Cleanup runs after failed uploads or byte comparisons;
+cleanup failures report only the key for manual removal. CLI output is captured,
+and unexpected provider errors are suppressed. Each CLI call has a 15-second
+timeout; checks share a 45-second budget with a separate cleanup allowance.
+
+The CLI smoke test proves real authenticated R2 REST upload/read/delete behavior.
+It does not exercise Octoload's adapter, S3 presigned URLs, conditional writes,
+browser CORS, or handlers. Use the storage harness below for those signatures.
+`pnpm test:harness` also checks the CLI harness against a fake executable for
+public-bucket refusal, successful cleanup, byte mismatch, and authorization
+failure after deletion. These checks test the harness, not Cloudflare itself.
+
 ## Real storage harness
 
 Use a dedicated test bucket with an account allowed to put, read, and delete

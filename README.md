@@ -140,8 +140,8 @@ pnpm run test:docs
 
 CI runs type, lint, format, coverage, documentation, and built package checks.
 The [contribution guide](CONTRIBUTING.md) lists the full verification command.
-The [storage harness](docs/testing.md) tests signed uploads and replay protection
-against a dedicated S3 or R2 test bucket.
+The [storage harnesses](docs/testing.md) check private R2 storage with Cloudflare
+`cf`, and signed uploads and replay protection with dedicated S3/R2 credentials.
 Bucket uploads and database migrations need a configured integration environment.
 
 [MIT license](LICENSE).
