@@ -237,6 +237,25 @@ describe('OctoloadClient', () => {
   });
 
   describe('getImage', () => {
+    it('accepts a redacted public read without requiring owner-only fields', async () => {
+      const image = {
+        id: 'public-image',
+        contentType: 'image/png',
+        byteSize: 3,
+        status: 'ready',
+        isPublic: true,
+        alt: 'A pixel',
+      };
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ image, url: 'https://cdn.test/public' }),
+      });
+      const result = await client.getImage(image.id);
+      expect(result.image).toEqual(image);
+      expect(result.image.filename).toBeUndefined();
+      expect(result.image.storageKey).toBeUndefined();
+    });
+
     it('accepts null metadata when reading an anonymous public image', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,

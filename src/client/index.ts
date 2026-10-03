@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type {
   FinalizeRequest,
   ImageRecord,
+  ImageReadRecord,
   PresignRequest,
   PresignResponse,
 } from '../types/index.js';
@@ -439,7 +440,7 @@ export class OctoloadClient {
 
   async getImage(
     imageId: string
-  ): Promise<{ image: ImageRecord; url: string }> {
+  ): Promise<{ image: ImageReadRecord; url: string }> {
     const response = await this.fetch(`/api/images/${imageId}`, {
       method: 'GET',
     });
@@ -451,7 +452,7 @@ export class OctoloadClient {
     const result = await response.json();
     try {
       const parsed = GetImageResponseSchema.parse(result);
-      return parsed as { image: ImageRecord; url: string };
+      return parsed as { image: ImageReadRecord; url: string };
     } catch (error) {
       throw new ValidationError('Invalid image response format', error);
     }

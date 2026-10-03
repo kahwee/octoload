@@ -11,6 +11,7 @@ import type { NewImage, UploadSchema } from '../templates/upload-schema.js';
 import type {
   FinalizeRequest,
   ImageRecord,
+  ImageReadRecord,
   OctoloadConfigLike,
   OctoloadHooks,
   PresignRequest,
@@ -391,7 +392,7 @@ export class OctoloadCore<
     imageId: string,
     userId?: string
   ): Promise<{
-    image: ImageRecord;
+    image: ImageReadRecord;
     url: string;
   }> {
     // Find image by ID
@@ -425,7 +426,24 @@ export class OctoloadCore<
       ? this.storage.getPublicUrl(image.storageKey)
       : await this.storage.getPrivateUrl(image.storageKey, 3600);
 
-    return { image: image as ImageRecord, url };
+    if (userId && image.ownerId === userId) return { image, url };
+
+    // Explicit allowlist: future database columns stay private by default.
+    return {
+      image: {
+        id: image.id,
+        contentType: image.contentType,
+        byteSize: image.byteSize,
+        status: image.status,
+        publicUrl: image.publicUrl,
+        alt: image.alt,
+        title: image.title,
+        isPublic: image.isPublic,
+        createdAt: image.createdAt,
+        updatedAt: image.updatedAt,
+      },
+      url,
+    };
   }
 
   /**

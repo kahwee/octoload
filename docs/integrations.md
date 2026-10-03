@@ -123,6 +123,12 @@ always supplies it.
 
 Reads through Octoload require a `ready` record. Metadata updates accept only
 `alt` (up to 500 characters) and `title` (up to 255), rejecting extra fields at runtime.
+Public reads by guests or other users return only ID, content type, byte size,
+status, public URL, alt text, title, visibility, and timestamps. Owner IDs,
+organization/entity associations, filenames, storage keys, and checksums are
+omitted. Owners still receive the full record, including for their public images.
+The core and browser `getImage` return `ImageReadRecord`; owner-only fields are
+optional in that type. Upload/finalize results still use `ImageRecord`.
 
 These changes protect newly issued URLs. Previously issued URLs remain usable
 until their original expiry. Conditional PUT prevents replacement while an object

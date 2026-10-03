@@ -127,6 +127,25 @@ export interface ImageRecord {
   updatedAt: Date;
 }
 
+/** Fields safe to return to readers other than the image owner. */
+export type PublicImageRecord = Pick<
+  ImageRecord,
+  | 'id'
+  | 'contentType'
+  | 'byteSize'
+  | 'status'
+  | 'publicUrl'
+  | 'alt'
+  | 'title'
+  | 'isPublic'
+  | 'createdAt'
+  | 'updatedAt'
+>;
+
+/** Owner-only fields are absent on public reads by guests or other users. */
+export type ImageReadRecord = PublicImageRecord &
+  Partial<Omit<ImageRecord, keyof PublicImageRecord>>;
+
 export interface UploadSessionRecord {
   id: string;
   imageId: string;

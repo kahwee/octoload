@@ -78,6 +78,7 @@ Uploads are private by default. The client asks your app for a signed URL,
 PUTs the file directly to the bucket, then finalizes the upload. Your app checks
 stored size and content type before marking the image ready. Private reads use
 signed GET URLs; private reads and all deletes enforce ownership through your app’s session.
+Public reads omit internal metadata unless the reader is the image owner.
 
 `uploadMultiple(files)` uploads in batches of three. Use `onEvent` for timed
 phase events, `onError` for structured failures, and `recoverUpload` to reconcile

@@ -124,4 +124,44 @@ describe('image access through handlers and core', () => {
     expect(storage.deleteObject).not.toHaveBeenCalled();
     expect(deleteRow).not.toHaveBeenCalled();
   });
+
+  it('returns only public fields to guests and strangers, with full metadata reserved for owners', async () => {
+    const image = {
+      ...privateImage,
+      isPublic: true,
+      orgId: 'internal-org',
+      entityType: 'confidential-project',
+      entityId: 'internal-entity',
+      checksum: 'private-checksum',
+      futureSecret: 'must not leak',
+      alt: 'Display caption',
+    };
+    const { get } = makeHandlers(image);
+    for (const user of [undefined, 'other-user']) {
+      const req = request(user);
+      const response = await get(req, image.id, { request: req });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        image: {
+          id: image.id,
+          contentType: image.contentType,
+          byteSize: image.byteSize,
+          status: 'ready',
+          isPublic: true,
+          alt: 'Display caption',
+          createdAt: image.createdAt.toISOString(),
+          updatedAt: image.updatedAt.toISOString(),
+        },
+        url: 'https://cdn.test/public',
+      });
+    }
+    const owner = request('owner-1');
+    const response = await get(owner, image.id, { request: owner });
+    expect((await response.json()).image).toMatchObject({
+      ownerId: image.ownerId,
+      orgId: image.orgId,
+      filename: image.filename,
+      storageKey: image.storageKey,
+    });
+  });
 });
