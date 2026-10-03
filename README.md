@@ -80,7 +80,9 @@ stored size and content type before marking the image ready. Private reads use
 signed GET URLs; private reads and all deletes enforce ownership through your app’s session.
 Public reads omit internal metadata unless the reader is the image owner.
 
-`uploadMultiple(files)` uploads in batches of three. Use `onEvent` for timed
+`uploadMultiple(files)` uploads in batches of three. If a batch fails,
+`UploadBatchError.outcomes` preserves successful results, individual errors, and
+files not yet started. Use `onEvent` for timed
 phase events, `onError` for structured failures, and `recoverUpload` to reconcile
 an uncertain upload without sending the file again. See
 [observability and recovery](https://github.com/kahwee/octoload/blob/main/docs/observability.md),

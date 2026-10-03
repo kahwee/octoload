@@ -84,6 +84,24 @@ not proof of success; reconcile it. Legacy multipart responses do not support
 this recovery API. Recovery handles are not persisted across reloads or clients.
 Anonymous already-ready uploads cannot use owner-based reconciliation.
 
+## Partial batch results
+
+`uploadMultiple` returns the same ordered `UploadResult[]` when every file
+succeeds. On failure it waits for all uploads in the current batch to settle,
+stops before starting the next batch, and throws `UploadBatchError`.
+Its `outcomes` array has one entry per input file, in input order, each with
+`fileIndex` and a `status`:
+
+- `fulfilled`: `value` contains the uploaded image result, including its ID.
+- `rejected`: `reason` is the original upload error. If it is an `UploadFailure`,
+  pass that exact object to `recoverUpload` when its retry guidance permits.
+- `skipped`: this file was never started; it can be uploaded normally.
+
+Keep successful results and retry only failed or skipped files to avoid creating
+duplicates. Per-file `onError` callbacks still receive individual failures;
+the aggregate error is returned through the batch promise, not the callback.
+Outcomes contain image metadata and are application state, not safe telemetry.
+
 ## Server logs and metrics
 
 Add callbacks to shared handler options for either framework:
@@ -140,5 +158,5 @@ package together to use recovery and correlation headers.
   completed. Recovery is explicit and never repeats PUT. A canceled attempt has
   no automatic retry policy; abandoned uploads remain eligible for cleanup.
 - `uploadMultiple` is not atomic: other files in a running batch can finish even
-  when one fails. Use per-upload IDs to track outcomes and a shared signal when
-  you want to cancel the remaining work.
+  when one fails. Catch `UploadBatchError` and inspect `outcomes` for all input
+  files. Use a shared signal when you want to cancel the remaining work.

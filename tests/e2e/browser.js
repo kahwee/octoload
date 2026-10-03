@@ -1,4 +1,4 @@
-import { OctoloadClient } from '../../dist/client/index.js';
+import { OctoloadClient, UploadBatchError } from '../../dist/client/index.js';
 const params = new URLSearchParams(location.search);
 const client = new OctoloadClient({
   baseUrl: location.origin,
@@ -43,6 +43,12 @@ async function display(result) {
   status.textContent = 'ready';
 }
 function failed(error) {
+  if (error instanceof UploadBatchError) {
+    const rejected = error.outcomes.find(
+      (outcome) => outcome.status === 'rejected'
+    );
+    if (rejected) error = rejected.reason;
+  }
   failure = error;
   status.textContent = `error:${error.phase}:${error.code}`;
 }

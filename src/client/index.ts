@@ -67,6 +67,19 @@ export class UploadError extends OctoloadError {
   }
 }
 
+/** One entry per input file, in input order. Later batches stop after a failure. */
+export type UploadBatchOutcome =
+  | { fileIndex: number; status: 'fulfilled'; value: UploadResult }
+  | { fileIndex: number; status: 'rejected'; reason: unknown }
+  | { fileIndex: number; status: 'skipped' };
+
+export class UploadBatchError extends OctoloadError {
+  constructor(public readonly outcomes: readonly UploadBatchOutcome[]) {
+    super('One or more uploads failed', 'UPLOAD_BATCH_FAILED');
+    this.name = 'UploadBatchError';
+  }
+}
+
 export type UploadPhase = 'presign' | 'put' | 'checksum' | 'finalize';
 export type UploadRetry =
   | 'never'
@@ -412,6 +425,10 @@ export class OctoloadClient {
     // Upload files in parallel with concurrency limit
     const concurrency = 3;
     const results: UploadResult[] = [];
+    const outcomes: UploadBatchOutcome[] = files.map((_, fileIndex) => ({
+      fileIndex,
+      status: 'skipped',
+    }));
 
     for (let i = 0; i < files.length; i += concurrency) {
       const batch = files.slice(i, i + concurrency);
@@ -431,8 +448,27 @@ export class OctoloadClient {
         })
       );
 
-      const batchResults = await Promise.all(batchPromises);
-      results.push(...batchResults);
+      // Wait for every in-flight upload so the error includes stable outcomes.
+      const batchResults = await Promise.allSettled(batchPromises);
+      let failed = false;
+      for (const [index, result] of batchResults.entries()) {
+        if (result.status === 'fulfilled') {
+          outcomes[i + index] = {
+            fileIndex: i + index,
+            status: 'fulfilled',
+            value: result.value,
+          };
+          results.push(result.value);
+        } else {
+          failed = true;
+          outcomes[i + index] = {
+            fileIndex: i + index,
+            status: 'rejected',
+            reason: result.reason,
+          };
+        }
+      }
+      if (failed) throw new UploadBatchError(outcomes);
     }
 
     return results;
