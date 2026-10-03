@@ -51,8 +51,14 @@ pnpm run test:package
 pnpm run test:harness
 pnpm run test:db:pglite
 
+# Install the browser once before running browser E2E checks
+pnpm exec playwright install chromium
+
+# Browser + Next.js + SQLite + local HTTP storage fixture (after build)
+pnpm run test:e2e
+
 # Full verification (before submitting PR)
-pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:docs && pnpm run test:coverage && pnpm run build && pnpm run test:package && pnpm run test:harness && pnpm run test:db:pglite && node examples/database.mjs sqlite && node examples/database.mjs pglite && node examples/persistent-database.mjs sqlite && node examples/persistent-database.mjs pglite
+pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:docs && pnpm run test:coverage && pnpm run build && pnpm run test:package && pnpm run test:harness && pnpm run test:db:pglite && node examples/database.mjs sqlite && node examples/database.mjs pglite && node examples/persistent-database.mjs sqlite && node examples/persistent-database.mjs pglite && pnpm run test:e2e
 ```
 
 For dependency maintenance, run `pnpm update --latest`, review the manifest and

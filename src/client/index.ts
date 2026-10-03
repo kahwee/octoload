@@ -415,7 +415,7 @@ export class OctoloadClient {
                   fileIndex: i + index,
                   totalFiles: files.length,
                 };
-                options.onProgress!(extendedProgress);
+                notify(options.onProgress, extendedProgress);
               }
             : undefined,
         })
@@ -730,7 +730,7 @@ export class OctoloadClient {
         signal: controller.signal,
       });
       // Keep the timeout active while reading the small API response body too.
-      if (response.body) {
+      if (response.body && ![204, 205, 304].includes(response.status)) {
         return new Response(await response.arrayBuffer(), {
           status: response.status,
           statusText: response.statusText,

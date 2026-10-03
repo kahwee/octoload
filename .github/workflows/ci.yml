@@ -71,6 +71,14 @@ jobs:
           node examples/persistent-database.mjs sqlite
           node examples/persistent-database.mjs pglite
 
+      - name: Install browser for E2E
+        if: matrix.node-version == 24
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser lifecycle and failure recovery (local storage fixture)
+        if: matrix.node-version == 24
+        run: pnpm run test:e2e
+
       - name: Upload coverage reports to Codecov
         if: matrix.node-version == 24
         continue-on-error: true

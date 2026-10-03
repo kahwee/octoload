@@ -7,7 +7,20 @@ class XHR {
   static sends = 0;
   status = 200;
   timeout = 0;
-  upload = { addEventListener: () => {} };
+  upload = {
+    addEventListener: (
+      _name: string,
+      callback: (event: {
+        lengthComputable: boolean;
+        loaded: number;
+        total: number;
+      }) => void
+    ) => {
+      queueMicrotask(() =>
+        callback({ lengthComputable: true, loaded: 3, total: 3 })
+      );
+    },
+  };
   listeners = new Map<string, () => void>();
   addEventListener(name: string, callback: () => void) {
     this.listeners.set(name, callback);
@@ -155,6 +168,33 @@ describe('upload observability and recovery', () => {
       'cannot be recovered'
     );
     expect(XHR.sends).toBe(1);
+  });
+
+  it('isolates rejected async progress hooks in batched uploads', async () => {
+    const { fetch, client } = setup();
+    fetch.mockImplementation((url: string) =>
+      Promise.resolve(url.endsWith('presign') ? presign() : finalized())
+    );
+    const onProgress = vi.fn(async () => {
+      throw new Error('async telemetry failure');
+    });
+    await expect(
+      client.uploadMultiple([file(), file()], { onProgress })
+    ).resolves.toHaveLength(2);
+    expect(onProgress).toHaveBeenCalledTimes(2);
+  });
+
+  it('accepts a browser 204 response with an exposed empty body stream', async () => {
+    const { fetch, client } = setup();
+    const arrayBuffer = vi.fn();
+    fetch.mockResolvedValue({
+      status: 204,
+      ok: true,
+      body: new ReadableStream(),
+      arrayBuffer,
+    });
+    await expect(client.deleteImage('image')).resolves.toBeUndefined();
+    expect(arrayBuffer).not.toHaveBeenCalled();
   });
 
   it('retains independent correlation during concurrent uploads', async () => {

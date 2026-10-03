@@ -140,13 +140,59 @@ has also been checked with real `drizzle-kit generate` and `push` using only
 `.env`, then reopening all four tables. Offline migration generation still works
 without `DATABASE_URL`; applying migrations requires a configured connection.
 
-## Remaining integration layers
+## Browser E2E
 
-Browser CORS, framework routes with a real session provider, network PostgreSQL
-pooling, and multiple application processes still need deployment-level checks.
-Add browser tests against that stack for progress, cancellation, required headers,
-and CORS. The current real database plus R2 lifecycle runs through the core, not
-an HTTP framework handler or browser.
+Build the package, install Chromium once, then run the browser suite:
+
+```sh
+pnpm build
+pnpm exec playwright install chromium
+pnpm test:e2e
+```
+
+This launches a real Next.js app on `http://localhost:4317`, applies the generated
+SQLite migrations to a disposable database, and uses opaque HttpOnly session
+cookies with two test users. The browser uses the built client and Next.js
+adapters. The default storage endpoint is a local HTTP fixture: it exercises
+CORS and conditional PUT, but does not validate SigV4 signatures. CI runs this
+suite on Node 24. Test session/control endpoints are local fixtures, not code to
+deploy or a replacement for testing your application's authentication provider.
+
+To run the same suite against the dedicated private R2 bucket:
+
+```sh
+OCTOLOAD_E2E_ENV_FILE=.env.r2-test pnpm test:e2e:live
+# Repeat all scenarios to look for intermittent failures; no automatic retries.
+OCTOLOAD_E2E_ENV_FILE=.env.r2-test pnpm test:e2e:live --repeat-each=5
+```
+
+Use the `OCTOLOAD_TEST_*` variables documented above. Live mode requires
+`OCTOLOAD_TEST_ADAPTER=r2` and fails if configuration is missing. Environment
+files are never loaded by default. Keep the credentials file ignored and private.
+The harness does not change bucket configuration. Configure bucket CORS to allow
+`http://localhost:4317`, methods `PUT`, `GET`, and `HEAD`, and headers
+`Content-Type` and `If-None-Match`. `OCTOLOAD_E2E_PORT` changes the port; adjust
+CORS to match. A passing Node storage test does not prove browser CORS works.
+
+Scenarios cover private upload/read/delete, byte comparison, cross-user denial,
+request/upload correlation, throwing hooks, interruption, cancellation, timeout,
+session expiry, three concurrent uploads, and lost successful PUT/finalize
+responses. Fault tests deliberately interrupt selected requests; the successful
+live path makes actual browser requests to R2 without interception. Recovery
+must not replay PUT or announce success before finalize.
+
+Each test deletes its own isolated database's uploads. A shutdown cleanup pass
+attempts removal of leftover objects with a separate ten-second storage budget;
+failed cleanup preserves the temporary database and reports its path. Never
+point this harness at your application database. Build output and test results
+stay in ignored `tmp/`. Failures attach safe upload event JSON; raw network
+tracing is off because traces contain credentials and signed URLs. Only enable
+traces locally when you can protect those artifacts.
+
+Network PostgreSQL pooling, multiple application processes, a full React Router
+application, and deployed third-party session providers remain separate
+integration checks. PGlite and SQLite core tests cover both SQL dialects; browser
+E2E currently uses Next.js and SQLite with a test session provider.
 
 After building, `pnpm test:harness` checks the harness itself against a local HTTP
 fixture: missing configuration, a successful lifecycle, detection of incorrectly

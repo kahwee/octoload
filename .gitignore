@@ -41,3 +41,7 @@ coverage/
 # Temporary
 .tmp/
 tmp/
+
+# Next.js generates agent hints in the disposable browser fixture.
+tests/e2e/fixture/AGENTS.md
+tests/e2e/fixture/CLAUDE.md
