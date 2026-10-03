@@ -27,6 +27,10 @@ fill in the server environment, and apply the generated schema using the
 [Next.js setup guide](https://github.com/kahwee/octoload/blob/main/docs/nextjs.md). `init` preserves existing files;
 `generate` replaces its output file.
 
+`pnpm exec octoload migrate` generates and applies tracked Drizzle migrations;
+`--generate-only` generates SQL offline for review. Existing installations should
+apply the new lookup indexes using the [database upgrade guide](https://github.com/kahwee/octoload/blob/main/docs/databases.md#tracked-migrations-and-index-upgrades).
+
 For SQLite, use `--dialect sqlite` with both `init` and `generate`.
 See the [database guide](https://github.com/kahwee/octoload/blob/main/docs/databases.md)
 for SQLite and PGlite connections, `init --driver pglite`, and runnable examples.

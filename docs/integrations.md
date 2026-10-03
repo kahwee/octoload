@@ -38,6 +38,10 @@ pnpm exec octoload generate --output app/db/upload-schema.ts
 
 This creates `app/lib/octoload/{auth,config,server}.ts` and routes for `api.uploads.presign`, `api.uploads.finalize`, and `api.images.$imageId`. Export your Drizzle `db` from `app/db/index.ts`. The Better Auth scaffold imports `auth` from `app/lib/auth.server.ts`; adjust that import if your app uses another path. Include `app/db/upload-schema.ts` in your Drizzle config and apply its migration.
 
+The image deletion action accepts only DELETE. Other methods return 405 with
+`Allow: DELETE` before authentication or deletion runs. Existing generated routes
+using the package adapter gain this guard when the package is upgraded.
+
 ## Scheduled cleanup
 
 Presigned PUT URLs expire after one hour. Run cleanup from a trusted scheduled server job to remove old `processing` or `failed` rows and their S3/R2 objects:
@@ -76,6 +80,10 @@ This cleans up single PUT uploads. If you use the storage adapter's lower-level 
   Review foreign keys and indexes on those columns during the migration.
 - The core upload flow uses single PUT on S3 and R2. It rejects `strategy: 'multipart'` and finalize requests with `parts`. Multipart types and low-level adapter methods exist, but there is no multipart server workflow.
 - The schema generator emits PostgreSQL tables by default and SQLite tables with `--dialect sqlite`; see [database setup](databases.md). The `upload_sessions`, `asset_variants`, and `image_tags` tables are available in the schema, but the current upload flow writes only `images`. Image processing, tag writes, custom storage adapters and MySQL are not implemented by the core flow.
+
+The generated schemas include indexes for storage-key lookup, owner/entity
+listings, and abandoned-upload cleanup. Existing databases need an index migration;
+see [tracked migrations and upgrades](databases.md#tracked-migrations-and-index-upgrades).
 
 ## Server lifecycle hooks
 

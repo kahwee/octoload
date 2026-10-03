@@ -26,11 +26,11 @@ export async function migrateCommand(options: MigrateOptions) {
 
     if (!options.generateOnly) {
       // Apply migrations
-      await runDrizzleCommand(['push']);
+      await runDrizzleCommand(['migrate']);
       console.log('✅ Applied migrations to database');
     } else {
       console.log(
-        '📝 Migration files generated. Run "drizzle-kit push" to apply.'
+        '📝 Migration files generated. Run "drizzle-kit migrate" to apply.'
       );
     }
   } catch (error) {

@@ -1,4 +1,11 @@
-import { integer, sqliteTable, text, check } from 'drizzle-orm/sqlite-core';
+import {
+  integer,
+  sqliteTable,
+  text,
+  check,
+  index,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 
@@ -51,6 +58,20 @@ export const images = sqliteTable(
     updatedAt: date('updated_at').notNull().default(now),
   },
   (table) => [
+    uniqueIndex('images_storage_key_unique').on(table.storageKey),
+    index('images_owner_status_created_idx').on(
+      table.ownerId,
+      table.status,
+      table.createdAt
+    ),
+    index('images_entity_owner_status_created_idx').on(
+      table.entityType,
+      table.entityId,
+      table.ownerId,
+      table.status,
+      table.createdAt
+    ),
+    index('images_status_created_idx').on(table.status, table.createdAt),
     check(
       'images_status_check',
       sql`${table.status} in ('processing', 'ready', 'failed')`

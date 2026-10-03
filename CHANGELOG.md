@@ -4,6 +4,9 @@
 
 GitHub release candidate; npm publication is pending. npm `latest` remains 0.2.1.
 
+- Require DELETE for React Router image deletion; other methods return 405 before auth or mutation.
+- Apply tracked SQL migrations in `octoload migrate` instead of schema push; preserve offline generation.
+- Add unique storage-key and listing/cleanup indexes to both schemas, with persistent-database upgrade checks. See [migration upgrade notes](docs/databases.md#tracked-migrations-and-index-upgrades).
 - Add phase-specific `UploadFailure` errors, isolated `onEvent`/`onError` hooks, and upload/request correlation across browser and server handlers.
 - Add AbortSignal cancellation, configurable API and single-PUT timeouts, and explicit `recoverUpload` without replaying PUT. Recovery verifies processing uploads or returns the authenticated owner's already-ready row.
 - Add Chromium E2E tests through Next.js, cookie-backed test sessions, SQLite, and local HTTP storage or a real private R2 bucket; cover lost responses, session expiry, cancellation, timeout, ownership, and concurrent uploads.

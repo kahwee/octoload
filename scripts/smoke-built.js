@@ -252,6 +252,8 @@ for (const name of ['octoload', 'octoload/client', 'octoload/nextjs', 'octoload/
     rmSync(r2Project, { recursive: true, force: true });
   }
 
+  run(process.execPath, [join(root, 'scripts/check-migrations.js'), cli]);
+
   console.log(
     'Packed package exports, CLI version/scaffolds, guides, and signing example passed.'
   );

@@ -10,6 +10,31 @@ the default. PGlite uses the PostgreSQL schema.
 | PGlite | `--driver pglite` with PostgreSQL schema | `drizzle-orm/pglite` |
 | SQLite | `--dialect sqlite` | `drizzle-orm/libsql` with local SQLite |
 
+## Tracked migrations and index upgrades
+
+`pnpm exec octoload migrate` runs `drizzle-kit generate` followed by
+`drizzle-kit migrate`. It applies the generated SQL files and records them in
+Drizzle's migration journal; repeat runs do not reapply completed migrations.
+Use `pnpm exec octoload migrate --generate-only` to generate SQL without a
+database connection, review it, then apply it with `pnpm exec drizzle-kit migrate`.
+Keep the migration files and snapshots in source control.
+
+Both upload schemas now include a unique index on `storage_key`, plus composite
+indexes for owner listings, entity/owner listings, and status/creation-time cleanup.
+Merge these index declarations into your existing upload schema, generate a
+migration, review it, and apply it to the existing database. Regenerating a schema
+file overwrites that file, so preserve any application-specific changes.
+The index migration preserves image rows; duplicate storage keys must be resolved
+before the unique index can be installed. It does not silently delete duplicates.
+
+Earlier versions of `octoload migrate` used `drizzle-kit push`, which did not
+apply SQL migration files or record their completion. For a database initialized
+that way, establish a reviewed baseline in your application's migration workflow
+before using tracked migrations. Do not blindly replay initial CREATE TABLE
+migrations or delete the database to work around missing migration history.
+Octoload does not automatically mark old migrations as applied.
+Stop applications using a persistent PGlite directory before running migrations.
+
 ## SQLite in an existing app
 
 ```sh

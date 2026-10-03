@@ -150,8 +150,9 @@ response correlation/error headers. These headers are never sent to the bucket.
 
 ## Upgrading from 0.2.x
 
-No schema migration is required for this release. Upgrade the client and server
-package together to use recovery and correlation headers.
+Upgrade the client and server package together to use recovery and correlation
+headers. Existing databases should apply the new lookup indexes as described in
+[database upgrades](databases.md#tracked-migrations-and-index-upgrades).
 
 - API requests now time out after 30 seconds, and single PUT after 120 seconds.
   Increase `requestTimeoutMs` or `uploadTimeoutMs` for slower environments.

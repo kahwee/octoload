@@ -43,9 +43,9 @@ const frameworkOptions = {
     throw new Error(`Session provider failed ${secret}`);
   },
 };
-const request = (body = '{}') =>
+const request = (body = '{}', method = 'POST') =>
   new Request('https://app.test/api/uploads/presign', {
-    method: 'POST',
+    method,
     body,
     headers: { 'Content-Type': 'application/json' },
   });
@@ -117,7 +117,7 @@ describe('HTTP boundaries redact arbitrary provider failures', () => {
     async (_name, factory) => {
       await assertSafeFailure(
         await factory(frameworkOptions)({
-          request: request(),
+          request: request('{}', _name === 'delete' ? 'DELETE' : 'POST'),
           params: { imageId: 'id' },
         })
       );
@@ -159,7 +159,7 @@ describe('HTTP boundaries redact arbitrary provider failures', () => {
     async (operation, factory) => {
       const onEvent = vi.fn();
       const response = await factory({ ...frameworkOptions, onEvent })({
-        request: request(),
+        request: request('{}', operation === 'delete' ? 'DELETE' : 'POST'),
         params: {},
       });
       expect(response.status).toBe(400);

@@ -1,6 +1,8 @@
 import {
   boolean,
   integer,
+  index,
+  uniqueIndex,
   pgEnum,
   pgTable,
   text,
@@ -35,27 +37,46 @@ export type ImageStatus = (typeof imageStatusEnum.enumValues)[number];
 export type AssetVariant = (typeof assetVariantEnum.enumValues)[number];
 
 // Images table
-export const images = pgTable('images', {
-  id: uuid('id')
-    .primaryKey()
-    .$defaultFn(() => randomUUID()),
-  ownerId: varchar('owner_id', { length: 255 }), // Better Auth and other string IDs
-  orgId: varchar('org_id', { length: 255 }), // nullable for personal uploads
-  entityType: varchar('entity_type', { length: 50 }), // e.g., 'appliance', 'recipe', 'user'
-  entityId: uuid('entity_id'), // UUID of the associated entity
-  filename: varchar('filename', { length: 255 }).notNull(),
-  contentType: varchar('content_type', { length: 100 }).notNull(),
-  byteSize: integer('byte_size').notNull(),
-  status: imageStatusEnum('status').notNull().default('processing'),
-  storageKey: varchar('storage_key', { length: 500 }).notNull(),
-  publicUrl: text('public_url'), // nullable for private storage
-  checksum: varchar('checksum', { length: 64 }), // SHA-256 hash
-  alt: text('alt'), // accessibility text
-  title: varchar('title', { length: 255 }),
-  isPublic: boolean('is_public').notNull().default(false),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+export const images = pgTable(
+  'images',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .$defaultFn(() => randomUUID()),
+    ownerId: varchar('owner_id', { length: 255 }), // Better Auth and other string IDs
+    orgId: varchar('org_id', { length: 255 }), // nullable for personal uploads
+    entityType: varchar('entity_type', { length: 50 }), // e.g., 'appliance', 'recipe', 'user'
+    entityId: uuid('entity_id'), // UUID of the associated entity
+    filename: varchar('filename', { length: 255 }).notNull(),
+    contentType: varchar('content_type', { length: 100 }).notNull(),
+    byteSize: integer('byte_size').notNull(),
+    status: imageStatusEnum('status').notNull().default('processing'),
+    storageKey: varchar('storage_key', { length: 500 }).notNull(),
+    publicUrl: text('public_url'), // nullable for private storage
+    checksum: varchar('checksum', { length: 64 }), // SHA-256 hash
+    alt: text('alt'), // accessibility text
+    title: varchar('title', { length: 255 }),
+    isPublic: boolean('is_public').notNull().default(false),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('images_storage_key_unique').on(table.storageKey),
+    index('images_owner_status_created_idx').on(
+      table.ownerId,
+      table.status,
+      table.createdAt
+    ),
+    index('images_entity_owner_status_created_idx').on(
+      table.entityType,
+      table.entityId,
+      table.ownerId,
+      table.status,
+      table.createdAt
+    ),
+    index('images_status_created_idx').on(table.status, table.createdAt),
+  ]
+);
 
 // Optional session records; the core single-PUT flow does not write this table
 export const uploadSessions = pgTable('upload_sessions', {

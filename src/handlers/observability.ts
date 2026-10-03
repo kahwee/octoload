@@ -25,6 +25,7 @@ function notify(hook: (() => unknown) | undefined): void {
 }
 
 function errorCode(message: string, status: number): string {
+  if (status === 405) return 'METHOD_NOT_ALLOWED';
   if (status === 401) return 'AUTHENTICATION_REQUIRED';
   if (status === 404) return 'IMAGE_NOT_FOUND';
   if (status >= 500) return 'INTERNAL_ERROR';

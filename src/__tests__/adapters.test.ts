@@ -213,6 +213,36 @@ describe('Framework Adapters', () => {
     });
 
     describe('createReactRouterDeleteImageHandler', () => {
+      it.each(['POST', 'PUT', 'PATCH', 'GET', 'HEAD', 'OPTIONS'])(
+        'rejects %s before invoking authentication or deletion',
+        async (method) => {
+          const getUser = vi.fn();
+          const onEvent = vi.fn();
+          const handler = createReactRouterDeleteImageHandler({
+            ...mockHandlerOptions,
+            getUser,
+            onEvent,
+          });
+          const response = await handler({
+            request: new Request('https://app.test/api/images/image', {
+              method,
+            }),
+            params: { imageId: 'image' },
+          });
+          expect(response.status).toBe(405);
+          expect(response.headers.get('Allow')).toBe('DELETE');
+          expect(response.headers.get('X-Octoload-Error-Code')).toBe(
+            'METHOD_NOT_ALLOWED'
+          );
+          expect(response.headers.get('Cache-Control')).toBe('no-store');
+          expect(response.headers.get('X-Request-Id')).toBeTruthy();
+          expect(getUser).not.toHaveBeenCalled();
+          expect(onEvent).toHaveBeenLastCalledWith(
+            expect.objectContaining({ status: 405, operation: 'delete' })
+          );
+        }
+      );
+
       it('should handle delete image request', async () => {
         const getUser = vi.fn().mockResolvedValue({ id: 'user-456' });
         const handler = createReactRouterDeleteImageHandler({

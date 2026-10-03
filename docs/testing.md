@@ -136,10 +136,13 @@ The 0.2.1 regressions check that XHR abort and timeout events reject the upload
 and skip finalization. Version 0.3.0 adds an AbortSignal cancellation API and
 configurable timeout durations; see [observability](observability.md).
 
-Disk reopen examples verify persistence for both databases. The PGlite scaffold
-has also been checked with real `drizzle-kit generate` and `push` using only
-`.env`, then reopening all four tables. Offline migration generation still works
-without `DATABASE_URL`; applying migrations requires a configured connection.
+Disk reopen examples verify persistence for both databases. The packed-package
+smoke test also runs the actual CLI against persistent SQLite and PGlite databases:
+offline generation without `DATABASE_URL`, a tracked upgrade from the previous
+unindexed schema, execution of custom migration SQL, repeat application, row
+preservation, unique storage-key enforcement, and installed index checks. SQLite
+query plans verify index usage for upload lookups, listings, and cleanup.
+Applying migrations requires a configured connection.
 
 ## Browser E2E
 

@@ -114,6 +114,21 @@ export function createReactRouterDeleteImageHandler(
   });
 
   return async ({ request, params }: ActionFunctionArgs) => {
+    if (request.method !== 'DELETE') {
+      return observeRequest(
+        options,
+        'delete',
+        async () =>
+          new Response(JSON.stringify({ error: 'Method not allowed' }), {
+            status: 405,
+            headers: {
+              Allow: 'DELETE',
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-store',
+            },
+          })
+      )(request);
+    }
     const imageId = params?.imageId;
     if (!imageId) {
       return observeRequest(

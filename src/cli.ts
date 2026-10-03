@@ -52,8 +52,11 @@ program
 
 program
   .command('migrate')
-  .description('Run drizzle-kit generate, then drizzle-kit push')
-  .option('--generate-only', 'Run drizzle-kit generate without push')
+  .description('Run drizzle-kit generate, then drizzle-kit migrate')
+  .option(
+    '--generate-only',
+    'Run drizzle-kit generate without applying migrations'
+  )
   .action(migrateCommand);
 
 program
