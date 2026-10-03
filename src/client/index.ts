@@ -10,11 +10,18 @@ export interface OctoloadClientConfig {
   baseUrl: string;
   apiKey?: string;
   headers?: Record<string, string>;
+  /** API request timeout; defaults to 30 seconds. */
+  requestTimeoutMs?: number;
+  /** Single PUT timeout; defaults to 120 seconds. */
+  uploadTimeoutMs?: number;
 }
 
 export interface UploadOptions
   extends Omit<PresignRequest, 'filename' | 'contentType' | 'byteSize'> {
   onProgress?: (progress: ProgressInfo) => void;
+  onEvent?: (event: UploadEvent) => void | Promise<void>;
+  onError?: (error: UploadFailure) => void | Promise<void>;
+  signal?: AbortSignal;
   onStateChange?: (
     state: 'presigning' | 'uploading' | 'finalizing' | 'completed' | 'error'
   ) => void;
@@ -57,6 +64,64 @@ export class UploadError extends OctoloadError {
     super(message, 'UPLOAD_ERROR', 500, details);
     this.name = 'UploadError';
   }
+}
+
+export type UploadPhase = 'presign' | 'put' | 'checksum' | 'finalize';
+export type UploadRetry =
+  | 'never'
+  | 'restart-upload'
+  | 'retry-finalize'
+  | 'reconcile';
+
+/** Safe metadata only: no filenames, storage keys, URLs, or exception causes. */
+export interface UploadEvent {
+  type: 'phase.started' | 'phase.succeeded' | 'phase.failed';
+  uploadId: string;
+  attempt: number;
+  phase: UploadPhase;
+  durationMs: number;
+  code?: string;
+  status?: number;
+  requestId?: string;
+  retry?: UploadRetry;
+}
+
+export class UploadFailure extends OctoloadError {
+  readonly status?: number;
+  constructor(
+    message: string,
+    code: string,
+    public readonly uploadId: string,
+    public readonly phase: UploadPhase,
+    public readonly retry: UploadRetry,
+    status?: number,
+    public readonly requestId?: string,
+    cause?: unknown
+  ) {
+    super(message, code, status);
+    this.name = 'UploadFailure';
+    this.status = status;
+    // Retain debugging context without including it in JSON telemetry.
+    Object.defineProperty(this, 'cause', { value: cause, enumerable: false });
+  }
+}
+
+function notify<T>(hook: ((value: T) => unknown) | undefined, value: T): void {
+  try {
+    void Promise.resolve(hook?.(value)).catch(() => {});
+  } catch {
+    // Observers must never change the upload outcome.
+  }
+}
+
+interface UploadAttempt {
+  uploadId: string;
+  attempt: number;
+  file: File;
+  presign?: PresignResponse;
+  checksum?: string;
+  parts?: { partNumber: number; etag: string }[];
+  requestId?: string;
 }
 
 // Zod schemas for API response validation
@@ -123,8 +188,16 @@ interface ProgressInfo {
 
 export class OctoloadClient {
   private config: OctoloadClientConfig;
+  private recoveries = new WeakMap<UploadFailure, UploadAttempt>();
 
   constructor(config: OctoloadClientConfig) {
+    for (const value of [config.requestTimeoutMs, config.uploadTimeoutMs]) {
+      if (value !== undefined && (!Number.isFinite(value) || value <= 0)) {
+        throw new ValidationError(
+          'Timeouts must be positive finite milliseconds'
+        );
+      }
+    }
     this.config = config;
   }
 
@@ -132,53 +205,193 @@ export class OctoloadClient {
     file: File,
     options: UploadOptions = {}
   ): Promise<UploadResult> {
-    const { onProgress, onStateChange, ...presignOptions } = options;
-
-    try {
-      onStateChange?.('presigning');
-
-      // Step 1: Get presigned URL
-      const presignRequest: PresignRequest = {
-        filename: file.name,
-        contentType: file.type,
-        byteSize: file.size,
-        ...presignOptions,
-      };
-
-      const presignResponse = await this.presign(presignRequest);
-
-      onStateChange?.('uploading');
-
-      // Step 2: Upload file
-      let completedParts: { partNumber: number; etag: string }[] | undefined;
-      if (presignResponse.multipart) {
+    const attempt: UploadAttempt = {
+      uploadId:
+        globalThis.crypto?.randomUUID?.() ??
+        `upload-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
+      attempt: 1,
+      file,
+    };
+    const {
+      onProgress,
+      onStateChange,
+      onEvent,
+      onError,
+      signal,
+      ...presignOptions
+    } = options;
+    notify(onStateChange, 'presigning');
+    attempt.presign = await this.phase(attempt, 'presign', options, () =>
+      this.presign(
+        {
+          filename: file.name,
+          contentType: file.type,
+          byteSize: file.size,
+          ...presignOptions,
+        },
+        attempt,
+        signal
+      )
+    );
+    notify(onStateChange, 'uploading');
+    await this.phase(attempt, 'put', options, async () => {
+      if (attempt.presign!.multipart) {
         const result = await this.uploadMultipart(
           file,
-          presignResponse,
-          onProgress
+          attempt.presign!,
+          (progress) => notify(onProgress, progress),
+          signal
         );
-        completedParts = result.completedParts;
+        attempt.parts = result.completedParts;
       } else {
-        await this.uploadSingle(file, presignResponse, onProgress);
+        await this.uploadSingle(
+          file,
+          attempt.presign!,
+          (progress) => notify(onProgress, progress),
+          signal
+        );
       }
+    });
+    return this.finish(attempt, options, false);
+  }
 
-      onStateChange?.('finalizing');
+  /** Reconcile a failed single PUT/finalize without replaying PUT. Same client instance required. */
+  async recoverUpload(
+    error: UploadFailure,
+    options: UploadOptions = {}
+  ): Promise<UploadResult> {
+    const previous = this.recoveries.get(error);
+    if (
+      !previous ||
+      error.retry === 'never' ||
+      error.retry === 'restart-upload'
+    ) {
+      throw new ValidationError(
+        'This failure cannot be recovered; start a new upload'
+      );
+    }
+    return this.finish(
+      { ...previous, attempt: previous.attempt + 1 },
+      options,
+      true
+    );
+  }
 
-      // Step 3: Finalize upload
-      const finalizeRequest: FinalizeRequest = {
-        storageKey: presignResponse.storageKey,
-        checksum: await this.calculateChecksum(file),
-        ...(completedParts && { parts: completedParts }),
-      };
+  private async finish(
+    attempt: UploadAttempt,
+    options: UploadOptions,
+    reconcile: boolean
+  ): Promise<UploadResult> {
+    notify(options.onStateChange, 'finalizing');
+    if (!attempt.checksum) {
+      attempt.checksum = await this.phase(attempt, 'checksum', options, () =>
+        this.calculateChecksum(attempt.file)
+      );
+    }
+    const image = await this.phase(attempt, 'finalize', options, () =>
+      this.finalize(
+        {
+          storageKey: attempt.presign!.storageKey,
+          checksum: attempt.checksum,
+          ...(attempt.parts && { parts: attempt.parts }),
+          ...(reconcile && { reconcile: true }),
+        },
+        attempt,
+        options.signal
+      )
+    );
+    notify(options.onStateChange, 'completed');
+    return { image };
+  }
 
-      const image = await this.finalize(finalizeRequest);
-
-      onStateChange?.('completed');
-
-      return { image };
-    } catch (error) {
-      onStateChange?.('error');
-      throw error;
+  private async phase<T>(
+    attempt: UploadAttempt,
+    phase: UploadPhase,
+    options: UploadOptions,
+    run: () => Promise<T>
+  ): Promise<T> {
+    const started = performance.now();
+    attempt.requestId = undefined;
+    const event = {
+      uploadId: attempt.uploadId,
+      attempt: attempt.attempt,
+      phase,
+    };
+    notify(options.onEvent, { ...event, type: 'phase.started', durationMs: 0 });
+    try {
+      options.signal?.throwIfAborted();
+      const result = await run();
+      options.signal?.throwIfAborted();
+      notify(options.onEvent, {
+        ...event,
+        type: 'phase.succeeded',
+        durationMs: performance.now() - started,
+        requestId: attempt.requestId,
+      });
+      return result;
+    } catch (cause) {
+      const source = cause instanceof OctoloadError ? cause : undefined;
+      const status = source?.statusCode;
+      const aborted =
+        options.signal?.aborted ||
+        (cause instanceof Error && cause.name === 'AbortError') ||
+        source?.code === 'UPLOAD_ABORTED';
+      const code = aborted
+        ? 'UPLOAD_ABORTED'
+        : (source?.code ??
+          (phase === 'checksum' ? 'CHECKSUM_FAILED' : 'NETWORK_ERROR'));
+      let retry: UploadRetry = 'never';
+      if (
+        !aborted &&
+        phase === 'presign' &&
+        (!status || status >= 500 || status === 429)
+      )
+        retry = 'restart-upload';
+      if (
+        !aborted &&
+        phase === 'put' &&
+        (!status || status >= 500 || status === 412)
+      )
+        retry = 'reconcile';
+      if (
+        !aborted &&
+        phase === 'finalize' &&
+        (!status || status >= 500 || status === 429 || status === 401)
+      )
+        retry = 'retry-finalize';
+      if (code === 'UPLOAD_MISSING') retry = 'restart-upload';
+      if (attempt.presign?.multipart) retry = 'never';
+      const message =
+        source?.message ??
+        (aborted
+          ? 'Upload aborted'
+          : phase === 'checksum'
+            ? 'Could not calculate upload checksum; use a secure browser context'
+            : 'Network request failed');
+      const failure = new UploadFailure(
+        message,
+        code,
+        attempt.uploadId,
+        phase,
+        retry,
+        status,
+        attempt.requestId,
+        cause
+      );
+      if (attempt.presign && retry !== 'never' && retry !== 'restart-upload')
+        this.recoveries.set(failure, attempt);
+      notify(options.onEvent, {
+        ...event,
+        type: 'phase.failed',
+        durationMs: performance.now() - started,
+        code,
+        status,
+        retry,
+        requestId: attempt.requestId,
+      });
+      notify(options.onStateChange, 'error');
+      notify(options.onError, failure);
+      throw failure;
     }
   }
 
@@ -245,11 +458,18 @@ export class OctoloadClient {
     }
   }
 
-  private async presign(request: PresignRequest): Promise<PresignResponse> {
+  private async presign(
+    request: PresignRequest,
+    attempt: UploadAttempt,
+    signal?: AbortSignal
+  ): Promise<PresignResponse> {
     const response = await this.fetch('/api/uploads/presign', {
       method: 'POST',
       body: JSON.stringify(request),
+      signal,
+      headers: { 'X-Octoload-Upload-Id': attempt.uploadId },
     });
+    attempt.requestId = response.headers?.get('X-Request-Id') ?? undefined;
 
     if (!response.ok) {
       throw await this.handleErrorResponse(response, 'Presign failed');
@@ -263,11 +483,18 @@ export class OctoloadClient {
     }
   }
 
-  private async finalize(request: FinalizeRequest): Promise<ImageRecord> {
+  private async finalize(
+    request: FinalizeRequest,
+    attempt: UploadAttempt,
+    signal?: AbortSignal
+  ): Promise<ImageRecord> {
     const response = await this.fetch('/api/uploads/finalize', {
       method: 'POST',
       body: JSON.stringify(request),
+      signal,
+      headers: { 'X-Octoload-Upload-Id': attempt.uploadId },
     });
+    attempt.requestId = response.headers?.get('X-Request-Id') ?? undefined;
 
     if (!response.ok) {
       throw await this.handleErrorResponse(response, 'Finalize failed');
@@ -285,7 +512,8 @@ export class OctoloadClient {
   private async uploadSingle(
     file: File,
     presignResponse: PresignResponse,
-    onProgress?: (progress: ProgressInfo) => void
+    onProgress?: (progress: ProgressInfo) => void,
+    signal?: AbortSignal
   ): Promise<void> {
     if (!presignResponse.uploadUrl) {
       throw new ValidationError('No upload URL provided for single upload');
@@ -315,9 +543,11 @@ export class OctoloadClient {
           resolve();
         } else {
           reject(
-            new UploadError(`Single upload failed: ${xhr.statusText}`, {
-              status: xhr.status,
-            })
+            new OctoloadError(
+              'Storage rejected the upload',
+              'STORAGE_REJECTED',
+              xhr.status
+            )
           );
         }
       });
@@ -327,10 +557,10 @@ export class OctoloadClient {
       });
 
       xhr.addEventListener('abort', () => {
-        reject(new UploadError('Upload aborted'));
+        reject(new OctoloadError('Upload aborted', 'UPLOAD_ABORTED'));
       });
       xhr.addEventListener('timeout', () => {
-        reject(new NetworkError('Upload timed out'));
+        reject(new OctoloadError('Upload timed out', 'UPLOAD_TIMEOUT'));
       });
 
       if (!presignResponse.uploadUrl) {
@@ -341,6 +571,17 @@ export class OctoloadClient {
       }
 
       xhr.open('PUT', presignResponse.uploadUrl);
+      xhr.timeout = this.config.uploadTimeoutMs ?? 120_000;
+      const abort = () => xhr.abort();
+      xhr.addEventListener('loadend', () =>
+        signal?.removeEventListener('abort', abort)
+      );
+      signal?.addEventListener('abort', abort, { once: true });
+      if (signal?.aborted) {
+        signal.removeEventListener('abort', abort);
+        reject(new OctoloadError('Upload aborted', 'UPLOAD_ABORTED'));
+        return;
+      }
 
       // Set headers if provided
       if (presignResponse.headers) {
@@ -358,7 +599,8 @@ export class OctoloadClient {
   private async uploadMultipart(
     file: File,
     presignResponse: PresignResponse,
-    onProgress?: (progress: ProgressInfo) => void
+    onProgress?: (progress: ProgressInfo) => void,
+    signal?: AbortSignal
   ): Promise<{ completedParts: { partNumber: number; etag: string }[] }> {
     if (!presignResponse.multipart) {
       throw new ValidationError('No multipart upload configuration provided');
@@ -378,6 +620,7 @@ export class OctoloadClient {
       const response = await fetch(part.uploadUrl, {
         method: 'PUT',
         body: chunk,
+        signal,
       });
 
       if (!response.ok) {
@@ -451,7 +694,9 @@ export class OctoloadClient {
 
     throw new OctoloadError(
       parsed.error,
-      parsed.code || 'UNKNOWN_ERROR',
+      parsed.code ||
+        response.headers?.get('X-Octoload-Error-Code') ||
+        'UNKNOWN_ERROR',
       response.status,
       parsed.details
     );
@@ -469,16 +714,41 @@ export class OctoloadClient {
       headers['Authorization'] = `Bearer ${this.config.apiKey}`;
     }
 
+    const controller = new AbortController();
+    const abort = () => controller.abort(init.signal?.reason);
+    init.signal?.addEventListener('abort', abort, { once: true });
+    if (init.signal?.aborted) abort();
+    const timer = setTimeout(
+      () =>
+        controller.abort(new DOMException('Request timed out', 'TimeoutError')),
+      this.config.requestTimeoutMs ?? 30_000
+    );
     try {
-      return await fetch(url, {
+      const response = await fetch(url, {
         ...init,
         headers,
+        signal: controller.signal,
       });
+      // Keep the timeout active while reading the small API response body too.
+      if (response.body) {
+        return new Response(await response.arrayBuffer(), {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+      }
+      return response;
     } catch (error) {
+      if (controller.signal.aborted && !init.signal?.aborted) {
+        throw new OctoloadError('API request timed out', 'REQUEST_TIMEOUT');
+      }
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new NetworkError('Network request failed', undefined, error);
       }
       throw error;
+    } finally {
+      clearTimeout(timer);
+      init.signal?.removeEventListener('abort', abort);
     }
   }
 }

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type {
   FinalizeRequest,
   OctoloadConfigLike,
@@ -25,6 +26,85 @@ export interface HandlerOptions<
   storage?: unknown;
   requireAuth?: boolean;
   getUser?: (context: HandlerContext) => Promise<{ id: string } | null>;
+  /** Safe lifecycle metadata suitable for metrics and structured logs. */
+  onEvent?: (event: HandlerEvent) => void | Promise<void>;
+  /** Trusted server debugging only; underlying causes can contain secrets. */
+  onError?: (error: unknown, event: HandlerEvent) => void | Promise<void>;
+}
+
+export interface HandlerEvent {
+  type: 'request.started' | 'request.succeeded' | 'request.failed';
+  operation: 'presign' | 'finalize' | 'get' | 'delete' | 'list';
+  requestId: string;
+  uploadId?: string;
+  durationMs: number;
+  status?: number;
+  code?: string;
+}
+
+function notify(hook: (() => unknown) | undefined): void {
+  try {
+    void Promise.resolve(hook?.()).catch(() => {});
+  } catch {
+    /* Observer isolation. */
+  }
+}
+
+function errorCode(message: string, status: number): string {
+  if (status === 401) return 'AUTHENTICATION_REQUIRED';
+  if (status === 404) return 'IMAGE_NOT_FOUND';
+  if (status >= 500) return 'INTERNAL_ERROR';
+  if (message === 'Upload verification failed - file not found in storage')
+    return 'UPLOAD_MISSING';
+  if (message.startsWith('Upload verification failed'))
+    return 'UPLOAD_MISMATCH';
+  if (message === 'Upload is no longer processing')
+    return 'UPLOAD_STATE_CONFLICT';
+  return 'VALIDATION_ERROR';
+}
+
+/** Wrap every response, including early auth failures, with safe correlation. */
+function observe<T extends [Request, ...unknown[]]>(
+  options: HandlerOptions,
+  operation: HandlerEvent['operation'],
+  handler: (...args: T) => Promise<Response>
+): (...args: T) => Promise<Response> {
+  return async (...args) => {
+    const started = performance.now();
+    const incoming = args[0].headers.get('X-Octoload-Upload-Id');
+    const uploadId =
+      incoming && /^[a-zA-Z0-9_-]{1,64}$/.test(incoming) ? incoming : undefined;
+    const base = { operation, requestId: randomUUID(), uploadId };
+    notify(() =>
+      options.onEvent?.({ ...base, type: 'request.started', durationMs: 0 })
+    );
+    let response: Response;
+    let cause: unknown;
+    try {
+      response = await handler(...args);
+    } catch (error) {
+      cause = error;
+      response = errorResponse(error);
+    }
+    let code: string | undefined;
+    if (!response.ok) {
+      const body = (await response.clone().json()) as { error?: string };
+      code = errorCode(body.error ?? '', response.status);
+      response.headers.set('X-Octoload-Error-Code', code);
+    }
+    response.headers.set('X-Request-Id', base.requestId);
+    if (uploadId) response.headers.set('X-Octoload-Upload-Id', uploadId);
+    const event: HandlerEvent = {
+      ...base,
+      type: response.ok ? 'request.succeeded' : 'request.failed',
+      durationMs: performance.now() - started,
+      status: response.status,
+      code,
+    };
+    notify(() => options.onEvent?.(event));
+    if (cause !== undefined) notify(() => options.onError?.(cause, event));
+    return response;
+  };
 }
 
 class InvalidRequestError extends Error {}
@@ -122,12 +202,37 @@ export function createPresignHandler<
     options.schema
   );
 
-  return async (request: Request, context?: HandlerContext) => {
-    try {
-      // Check authentication if required
-      const user = await resolveUser(options, context);
-      if (options.requireAuth) {
-        if (!user) {
+  return observe(
+    options,
+    'presign',
+    async (request: Request, context?: HandlerContext) => {
+      try {
+        // Check authentication if required
+        const user = await resolveUser(options, context);
+        if (options.requireAuth) {
+          if (!user) {
+            return new Response(
+              JSON.stringify({ error: 'Authentication required' }),
+              {
+                status: 401,
+                headers: jsonHeaders,
+              }
+            );
+          }
+        }
+
+        const body = await parseBody(request);
+        if (!body || typeof body !== 'object' || Array.isArray(body)) {
+          return new Response(JSON.stringify({ error: 'Invalid request' }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        const presignRequest = body as PresignRequest;
+
+        // Never trust an owner ID supplied in the request body.
+        presignRequest.ownerId = user?.id;
+        if (!user && !presignRequest.isPublic) {
           return new Response(
             JSON.stringify({ error: 'Authentication required' }),
             {
@@ -136,39 +241,18 @@ export function createPresignHandler<
             }
           );
         }
-      }
 
-      const body = await parseBody(request);
-      if (!body || typeof body !== 'object' || Array.isArray(body)) {
-        return new Response(JSON.stringify({ error: 'Invalid request' }), {
-          status: 400,
+        const result = await core.presign(presignRequest);
+
+        return new Response(JSON.stringify(result), {
+          status: 200,
           headers: jsonHeaders,
         });
+      } catch (error) {
+        throw error;
       }
-      const presignRequest = body as PresignRequest;
-
-      // Never trust an owner ID supplied in the request body.
-      presignRequest.ownerId = user?.id;
-      if (!user && !presignRequest.isPublic) {
-        return new Response(
-          JSON.stringify({ error: 'Authentication required' }),
-          {
-            status: 401,
-            headers: jsonHeaders,
-          }
-        );
-      }
-
-      const result = await core.presign(presignRequest);
-
-      return new Response(JSON.stringify(result), {
-        status: 200,
-        headers: jsonHeaders,
-      });
-    } catch (error) {
-      return errorResponse(error);
     }
-  };
+  );
 }
 
 export function createFinalizeHandler<
@@ -181,31 +265,35 @@ export function createFinalizeHandler<
     options.schema
   );
 
-  return async (request: Request, context?: HandlerContext) => {
-    try {
-      const user = await resolveUser(options, context);
-      if (options.requireAuth && !user) {
-        return new Response(
-          JSON.stringify({ error: 'Authentication required' }),
-          {
-            status: 401,
-            headers: jsonHeaders,
-          }
-        );
+  return observe(
+    options,
+    'finalize',
+    async (request: Request, context?: HandlerContext) => {
+      try {
+        const user = await resolveUser(options, context);
+        if (options.requireAuth && !user) {
+          return new Response(
+            JSON.stringify({ error: 'Authentication required' }),
+            {
+              status: 401,
+              headers: jsonHeaders,
+            }
+          );
+        }
+        const body = await parseBody(request);
+        const finalizeRequest = body as FinalizeRequest;
+
+        const result = await core.finalize(finalizeRequest, user?.id);
+
+        return new Response(JSON.stringify(result), {
+          status: 200,
+          headers: jsonHeaders,
+        });
+      } catch (error) {
+        throw error;
       }
-      const body = await parseBody(request);
-      const finalizeRequest = body as FinalizeRequest;
-
-      const result = await core.finalize(finalizeRequest, user?.id);
-
-      return new Response(JSON.stringify(result), {
-        status: 200,
-        headers: jsonHeaders,
-      });
-    } catch (error) {
-      return errorResponse(error);
     }
-  };
+  );
 }
 
 export function createGetImageHandler<
@@ -218,32 +306,32 @@ export function createGetImageHandler<
     options.schema
   );
 
-  return async (
-    _request: Request,
-    imageId: string,
-    context?: HandlerContext
-  ) => {
-    try {
-      const user = await resolveUser(options, context);
-      if (options.requireAuth && !user) {
-        return new Response(
-          JSON.stringify({ error: 'Authentication required' }),
-          {
-            status: 401,
-            headers: jsonHeaders,
-          }
-        );
-      }
-      const result = await core.getImage(imageId, user?.id);
+  return observe(
+    options,
+    'get',
+    async (_request: Request, imageId: string, context?: HandlerContext) => {
+      try {
+        const user = await resolveUser(options, context);
+        if (options.requireAuth && !user) {
+          return new Response(
+            JSON.stringify({ error: 'Authentication required' }),
+            {
+              status: 401,
+              headers: jsonHeaders,
+            }
+          );
+        }
+        const result = await core.getImage(imageId, user?.id);
 
-      return new Response(JSON.stringify(result), {
-        status: 200,
-        headers: jsonHeaders,
-      });
-    } catch (error) {
-      return errorResponse(error);
+        return new Response(JSON.stringify(result), {
+          status: 200,
+          headers: jsonHeaders,
+        });
+      } catch (error) {
+        throw error;
+      }
     }
-  };
+  );
 }
 
 export function createDeleteImageHandler<
@@ -256,32 +344,32 @@ export function createDeleteImageHandler<
     options.schema
   );
 
-  return async (
-    _request: Request,
-    imageId: string,
-    context?: HandlerContext
-  ) => {
-    try {
-      const user = await resolveUser(options, context);
-      if (!user) {
-        return new Response(
-          JSON.stringify({ error: 'Authentication required' }),
-          {
-            status: 401,
-            headers: jsonHeaders,
-          }
-        );
-      }
-      await core.deleteImage(imageId, user.id);
+  return observe(
+    options,
+    'delete',
+    async (_request: Request, imageId: string, context?: HandlerContext) => {
+      try {
+        const user = await resolveUser(options, context);
+        if (!user) {
+          return new Response(
+            JSON.stringify({ error: 'Authentication required' }),
+            {
+              status: 401,
+              headers: jsonHeaders,
+            }
+          );
+        }
+        await core.deleteImage(imageId, user.id);
 
-      return new Response(null, {
-        status: 204,
-        headers: { 'Cache-Control': 'no-store' },
-      });
-    } catch (error) {
-      return errorResponse(error);
+        return new Response(null, {
+          status: 204,
+          headers: { 'Cache-Control': 'no-store' },
+        });
+      } catch (error) {
+        throw error;
+      }
     }
-  };
+  );
 }
 
 export function createGetImagesForEntityHandler<
@@ -294,38 +382,42 @@ export function createGetImagesForEntityHandler<
     options.schema
   );
 
-  return async (
-    _request: Request,
-    entityType: string,
-    entityId: string,
-    context?: HandlerContext
-  ) => {
-    try {
-      const user = await resolveUser(options, context);
-      if (!user) {
-        return new Response(
-          JSON.stringify({ error: 'Authentication required' }),
-          {
-            status: 401,
-            headers: jsonHeaders,
-          }
+  return observe(
+    options,
+    'list',
+    async (
+      _request: Request,
+      entityType: string,
+      entityId: string,
+      context?: HandlerContext
+    ) => {
+      try {
+        const user = await resolveUser(options, context);
+        if (!user) {
+          return new Response(
+            JSON.stringify({ error: 'Authentication required' }),
+            {
+              status: 401,
+              headers: jsonHeaders,
+            }
+          );
+        }
+
+        const result = await core.getImagesForEntity(
+          entityType,
+          entityId,
+          user.id
         );
+
+        return new Response(JSON.stringify(result), {
+          status: 200,
+          headers: jsonHeaders,
+        });
+      } catch (error) {
+        throw error;
       }
-
-      const result = await core.getImagesForEntity(
-        entityType,
-        entityId,
-        user.id
-      );
-
-      return new Response(JSON.stringify(result), {
-        status: 200,
-        headers: jsonHeaders,
-      });
-    } catch (error) {
-      return errorResponse(error);
     }
-  };
+  );
 }
 
 export { OctoloadCore };

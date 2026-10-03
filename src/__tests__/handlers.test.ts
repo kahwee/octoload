@@ -167,6 +167,75 @@ describe('Handlers', () => {
     });
   });
 
+  it('correlates safe events and preserves trusted causes despite failing observers', async () => {
+    const events: import('../handlers/index.js').HandlerEvent[] = [];
+    const cause = new Error('secret-provider-url');
+    const onError = vi.fn(async () => {
+      throw new Error('logging failed');
+    });
+    mockCore.finalize.mockRejectedValueOnce(cause);
+    const handler = createFinalizeHandler({
+      ...handlerOptions,
+      onEvent: (event) => {
+        events.push(event);
+        throw new Error('metrics failed');
+      },
+      onError,
+    });
+    const request = new Request('https://app.test/api/uploads/finalize', {
+      method: 'POST',
+      headers: {
+        'X-Octoload-Upload-Id': 'upload-123',
+        'X-Request-Id': 'untrusted',
+      },
+      body: JSON.stringify({ storageKey: 'secret-key' }),
+    });
+    const response = await handler(request);
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: 'Internal server error' });
+    expect(events.map((event) => event.type)).toEqual([
+      'request.started',
+      'request.failed',
+    ]);
+    expect(events[1]).toMatchObject({
+      operation: 'finalize',
+      uploadId: 'upload-123',
+      status: 500,
+      code: 'INTERNAL_ERROR',
+    });
+    expect(events[1].requestId).toBe(response.headers.get('X-Request-Id'));
+    expect(events[1].requestId).not.toBe('untrusted');
+    expect(JSON.stringify(events)).not.toContain('secret');
+    expect(onError).toHaveBeenCalledWith(cause, events[1]);
+  });
+
+  it('observes early session failures and drops malformed correlation IDs', async () => {
+    const onEvent = vi.fn();
+    const response = await createPresignHandler({
+      ...handlerOptions,
+      requireAuth: true,
+      onEvent,
+    })(
+      new Request('https://app.test/api/uploads/presign', {
+        method: 'POST',
+        headers: { 'X-Octoload-Upload-Id': 'sensitive/arbitrary/value' },
+      })
+    );
+    expect(response.status).toBe(401);
+    expect(response.headers.get('X-Octoload-Error-Code')).toBe(
+      'AUTHENTICATION_REQUIRED'
+    );
+    expect(response.headers.get('X-Octoload-Upload-Id')).toBeNull();
+    expect(onEvent).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: 'request.failed',
+        operation: 'presign',
+        status: 401,
+        uploadId: undefined,
+      })
+    );
+  });
+
   describe('createPresignHandler', () => {
     it('should handle valid presign request', async () => {
       const handler = createPresignHandler(handlerOptions);

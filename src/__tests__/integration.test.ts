@@ -243,7 +243,7 @@ describe('Integration Tests', () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       await expect(client.uploadFile(mockFile)).rejects.toThrow(
-        'Network error'
+        'Network request failed'
       );
     });
   });

@@ -82,7 +82,7 @@ describe('OctoloadClient', () => {
             { onStateChange: states }
           )
         ).rejects.toMatchObject({
-          code: event === 'abort' ? 'UPLOAD_ERROR' : 'NETWORK_ERROR',
+          code: event === 'abort' ? 'UPLOAD_ABORTED' : 'UPLOAD_TIMEOUT',
         });
         expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(states).toHaveBeenLastCalledWith('error');

@@ -197,6 +197,16 @@ export class OctoloadCore<
     if (image.ownerId && image.ownerId !== userId) {
       throw new Error('Access denied');
     }
+    // Explicit recovery is idempotent for authenticated owners only. Never
+    // restore failed/deleted rows or use a correlation ID as authorization.
+    if (
+      request.reconcile &&
+      image.status === 'ready' &&
+      userId &&
+      image.ownerId === userId
+    ) {
+      return image;
+    }
     if (image.status !== 'processing') {
       throw new Error('Upload is no longer processing');
     }
@@ -250,6 +260,16 @@ export class OctoloadCore<
     const updatedImage = updatedResults[0] as ImageRecord;
 
     if (!updatedImage) {
+      if (request.reconcile && userId) {
+        const [current] = await this.db
+          .select()
+          .from(this.getImagesTable())
+          .where(
+            this.and(this.eq(cols.id, image.id), this.eq(cols.ownerId, userId))
+          )
+          .limit(1);
+        if (current?.status === 'ready') return current as ImageRecord;
+      }
       throw new Error('Upload is no longer processing');
     }
 

@@ -91,6 +91,8 @@ export interface PresignResponse {
 }
 
 export interface FinalizeRequest {
+  /** Return an already-ready upload to its owner when recovering a lost response. */
+  reconcile?: boolean;
   storageKey: string;
   checksum?: string;
   parts?: { partNumber: number; etag: string }[];
@@ -169,6 +171,7 @@ export const presignRequestSchema = z.object({
 });
 
 export const finalizeRequestSchema = z.object({
+  reconcile: z.boolean().optional(),
   storageKey: z.string().min(1),
   checksum: z
     .string()

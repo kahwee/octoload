@@ -126,3 +126,5 @@ export {
   createReactRouterGetImageHandler as createGetImageHandler,
   createReactRouterPresignHandler as createPresignHandler,
 };
+
+export type { HandlerEvent } from '../handlers/index.js';

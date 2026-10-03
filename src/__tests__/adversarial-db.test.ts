@@ -137,6 +137,42 @@ for (const dialect of ['postgres', 'sqlite'] as const) {
       return row;
     };
 
+    it('reconciles a lost finalize response only for its owner and never restores deleted rows', async () => {
+      const row = await ready();
+      const request = { storageKey: row.storageKey, reconcile: true };
+      await expect(fixture.core.finalize(request, 'intruder')).rejects.toThrow(
+        'Access denied'
+      );
+      await expect(fixture.core.finalize(request)).rejects.toThrow(
+        'Authentication required'
+      );
+      await expect(
+        fixture.core.finalize(request, 'owner')
+      ).resolves.toMatchObject({ id: row.id, status: 'ready' });
+      await fixture.core.deleteImage(row.id, 'owner');
+      await expect(fixture.core.finalize(request, 'owner')).rejects.toThrow(
+        'Image record not found'
+      );
+      expect(await fixture.rows()).toEqual([]);
+    });
+
+    it('allows concurrent recovery to converge on one ready row', async () => {
+      const row = await processing();
+      const results = await Promise.all(
+        Array.from({ length: 8 }, () =>
+          fixture.core.finalize(
+            { storageKey: row.storageKey, reconcile: true },
+            'owner'
+          )
+        )
+      );
+      expect(new Set(results.map((result) => result.id))).toEqual(
+        new Set([row.id])
+      );
+      expect(results.every((result) => result.status === 'ready')).toBe(true);
+      expect(await fixture.rows()).toHaveLength(1);
+    });
+
     it('hides a ready row after storage deletion succeeds but SQL deletion fails, then permits retry', async () => {
       const row = await ready();
       await fixture.execute(
