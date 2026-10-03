@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { OctoloadClient, UploadFailure } from '../client/index.js';
 import type { UploadEvent } from '../client/index.js';
 
@@ -134,8 +135,6 @@ describe('upload observability and recovery', () => {
       'presign:phase.succeeded',
       'put:phase.started',
       'put:phase.succeeded',
-      'checksum:phase.started',
-      'checksum:phase.succeeded',
       'finalize:phase.started',
       'finalize:phase.succeeded',
     ]);
@@ -264,16 +263,87 @@ describe('upload observability and recovery', () => {
     ).toHaveLength(3);
   });
 
-  it('identifies checksum failure and prevents finalization', async () => {
+  it('uploads without Web Crypto or reading the file into memory by default', async () => {
+    const { fetch, client } = setup();
+    vi.stubGlobal('crypto', {});
+    const upload = file();
+    const read = vi
+      .spyOn(upload, 'arrayBuffer')
+      .mockRejectedValue(new Error('must not read'));
+    fetch.mockResolvedValueOnce(presign()).mockResolvedValueOnce(finalized());
+    await expect(client.uploadFile(upload)).resolves.toMatchObject({
+      image: { status: 'ready' },
+    });
+    expect(read).not.toHaveBeenCalled();
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).not.toHaveProperty(
+      'checksum'
+    );
+  });
+
+  it('computes SHA-256 only when opted in and keeps the option out of presign metadata', async () => {
+    const { fetch, client } = setup();
+    fetch.mockResolvedValueOnce(presign()).mockResolvedValueOnce(finalized());
+    const events: UploadEvent[] = [];
+    await client.uploadFile(file(), {
+      calculateChecksum: true,
+      onEvent: (event) => {
+        events.push(event);
+      },
+    });
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).not.toHaveProperty(
+      'calculateChecksum'
+    );
+    expect(JSON.parse(fetch.mock.calls[1][1].body).checksum).toBe(
+      createHash('sha256').update('png').digest('hex')
+    );
+    expect(
+      events
+        .filter((event) => event.phase === 'checksum')
+        .map((event) => event.type)
+    ).toEqual(['phase.started', 'phase.succeeded']);
+  });
+
+  it('recovers an optional checksum failure by skipping hashing without another PUT', async () => {
     const { fetch, client } = setup();
     vi.stubGlobal('crypto', {});
     fetch.mockResolvedValueOnce(presign());
-    await expect(client.uploadFile(file())).rejects.toMatchObject({
+    const failure = await client
+      .uploadFile(file(), { calculateChecksum: true })
+      .catch((error) => error);
+    expect(failure).toMatchObject({
       phase: 'checksum',
       code: 'CHECKSUM_FAILED',
-      retry: 'never',
+      retry: 'retry-finalize',
     });
     expect(fetch).toHaveBeenCalledTimes(1);
+    fetch.mockResolvedValueOnce(finalized());
+    await expect(
+      client.recoverUpload(failure, { calculateChecksum: false })
+    ).resolves.toMatchObject({ image: { status: 'ready' } });
+    expect(XHR.sends).toBe(1);
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({
+      storageKey: 'secret/key',
+      reconcile: true,
+    });
+  });
+
+  it('preserves opt-in hashing on recovery and reuses a completed checksum', async () => {
+    const { fetch, client } = setup();
+    const upload = file();
+    const read = vi.spyOn(upload, 'arrayBuffer');
+    fetch
+      .mockResolvedValueOnce(presign())
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const failure = await client
+      .uploadFile(upload, { calculateChecksum: true })
+      .catch((error) => error);
+    fetch.mockResolvedValueOnce(finalized());
+    await client.recoverUpload(failure);
+    expect(read).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetch.mock.calls[2][1].body).checksum).toBe(
+      createHash('sha256').update('png').digest('hex')
+    );
+    expect(XHR.sends).toBe(1);
   });
 
   it('bounds API requests and identifies cancellation', async () => {

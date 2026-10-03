@@ -67,7 +67,7 @@ test('real browser private upload, read, ownership, correlation, and delete', as
     result.events
       .filter((event) => event.type === 'phase.succeeded')
       .map((event) => event.phase)
-  ).toEqual(['presign', 'put', 'checksum', 'finalize']);
+  ).toEqual(['presign', 'put', 'finalize']);
   const bytes = await page.locator('img').evaluate(async (img) => {
     const response = await fetch(img.src);
     return [...new Uint8Array(await response.arrayBuffer())];

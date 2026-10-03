@@ -36,10 +36,10 @@ The returned promise still rejects on failure even when `onError` is provided.
 Do not record the same failure from both the hook and catch block.
 
 Events report `phase.started`, `phase.succeeded`, or `phase.failed` for `presign`,
-`put`, `checksum`, and `finalize`. They include `uploadId`, `attempt`, and phase
+`put`, and `finalize`, plus `checksum` when explicitly enabled. They include `uploadId`, `attempt`, and phase
 `durationMs`. Completed API phases also include the server's `requestId` when
 available. Failures add `code`, optional HTTP `status`, and `retry` guidance.
-PUT progress reaching 100% is not completion: checksum and finalize still follow.
+PUT progress reaching 100% is not completion: finalize still follows.
 The legacy state callback continues to use `finalizing` during checksum work;
 use `onEvent` for the more precise phase.
 
@@ -54,8 +54,12 @@ CORS or a connection problem; it does not identify which one.
 The API timeout covers the response body as well as headers; the PUT timeout
 covers the single XHR. Both timeout settings must be integer milliseconds from 1 through 2,147,483,647.
 Defaults are 30 seconds and 120 seconds respectively; adjust for large uploads.
-Checksum computation needs Web Crypto in a secure browser context. Cancellation
-is checked around checksum computation but cannot interrupt an in-flight digest.
+Checksum computation is disabled by default. Set `calculateChecksum: true` in
+upload options only if you need client-reported SHA-256 metadata. The server
+stores this value without verifying it; it is not proof of upload integrity.
+Opt-in hashing reads the entire file into memory and needs Web Crypto in a secure
+browser context. Cancellation is checked around computation but cannot interrupt
+an in-flight digest. Ordinary uploads do not need Web Crypto or this extra read.
 
 ## Explicit recovery
 
@@ -74,7 +78,7 @@ Supply callbacks again for that recovery attempt.
 | `reconcile` | PUT outcome is unknown; call `recoverUpload` to verify storage before deciding. |
 | `retry-finalize` | Call `recoverUpload`; restore the session first for HTTP 401. |
 
-Recovery never repeats PUT. It recomputes checksum if needed and sends finalize
+Recovery never repeats PUT. It recomputes an opted-in checksum if needed and sends finalize
 with `reconcile: true`. An authenticated owner can receive the already-ready row
 when a successful finalize response was lost. A processing row still requires
 normal storage metadata verification. Failed/deleted rows cannot become ready.
@@ -83,6 +87,9 @@ If verification establishes that no object exists, recovery returns
 not proof of success; reconcile it. Legacy multipart responses do not support
 this recovery API. Recovery handles are not persisted across reloads or clients.
 Anonymous already-ready uploads cannot use owner-based reconciliation.
+Checksum failures can also be recovered: either fix the environment and retry,
+or call `recoverUpload(failure, { calculateChecksum: false })` to finalize without
+the optional metadata. Recovery otherwise preserves the original checksum choice.
 
 ## Partial batch results
 
@@ -148,6 +155,8 @@ package together to use recovery and correlation headers.
 
 - API requests now time out after 30 seconds, and single PUT after 120 seconds.
   Increase `requestTimeoutMs` or `uploadTimeoutMs` for slower environments.
+- SHA-256 metadata is now opt-in via `calculateChecksum: true`. Default uploads
+  omit the checksum phase and finalize without a checksum.
 - `uploadFile` rejects with `UploadFailure`, which still extends `OctoloadError`.
   Replace upload-specific `instanceof NetworkError` or `instanceof UploadError`
   checks with `UploadFailure` plus `phase` and `code`. Abort and timeout now have

@@ -150,7 +150,8 @@ single PUT uploads and checks object metadata. To keep uploads lightweight,
 Octoload does not decode images: matching size and content type do not prove
 that the bytes are a valid image. Keep uploads private and authenticated; apps
 needing content validation can add it separately. Decoding is future work.
-Checksum verification and server multipart workflows are not implemented. See
+Browser checksum computation is disabled by default; `calculateChecksum: true`
+adds unverified SHA-256 metadata. Checksum verification and server multipart workflows are not implemented. See
 [limits and access](https://github.com/kahwee/octoload/blob/main/docs/integrations.md#limits-access-and-current-scope) for
 storage visibility and application authorization requirements.
 

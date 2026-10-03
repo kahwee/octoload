@@ -113,6 +113,12 @@ validator before publishing content when that guarantee is required.
 
 ## Upload integrity and upgrades
 
+The browser skips checksum computation by default. `uploadFile(file, {
+calculateChecksum: true })` opts into SHA-256 metadata at the cost of a full-file
+memory read and a Web Crypto requirement. The server stores but does not verify
+that checksum. If hashing fails after PUT, recover with `calculateChecksum: false`
+to finalize without it; the stored object is not uploaded again.
+
 Single-PUT upload URLs now require a signed `If-None-Match: *` header. A repeat PUT
 to an existing key fails rather than replacing its bytes. Upload attempts with a
 different declared size or content type fail signature validation. Update bucket

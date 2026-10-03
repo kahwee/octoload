@@ -19,6 +19,8 @@ export interface OctoloadClientConfig {
 
 export interface UploadOptions
   extends Omit<PresignRequest, 'filename' | 'contentType' | 'byteSize'> {
+  /** Opt-in SHA-256 metadata; disabled by default and not verified by the server. */
+  calculateChecksum?: boolean;
   onProgress?: (progress: ProgressInfo) => void;
   onEvent?: (event: UploadEvent) => void | Promise<void>;
   onError?: (error: UploadFailure) => void | Promise<void>;
@@ -132,6 +134,7 @@ interface UploadAttempt {
   uploadId: string;
   attempt: number;
   file: File;
+  calculateChecksum: boolean;
   presign?: PresignResponse;
   checksum?: string;
   parts?: { partNumber: number; etag: string }[];
@@ -228,6 +231,7 @@ export class OctoloadClient {
         `upload-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
       attempt: 1,
       file,
+      calculateChecksum: options.calculateChecksum ?? false,
     };
     const {
       onProgress,
@@ -235,6 +239,7 @@ export class OctoloadClient {
       onEvent,
       onError,
       signal,
+      calculateChecksum: _calculateChecksum,
       ...presignOptions
     } = options;
     notify(onStateChange, 'presigning');
@@ -306,7 +311,9 @@ export class OctoloadClient {
     const presign = attempt.presign;
     if (!presign) throw new ValidationError('No upload to finalize');
     notify(options.onStateChange, 'finalizing');
-    if (!attempt.checksum) {
+    attempt.calculateChecksum =
+      options.calculateChecksum ?? attempt.calculateChecksum;
+    if (attempt.calculateChecksum && !attempt.checksum) {
       attempt.checksum = await this.phase(attempt, 'checksum', options, () =>
         this.calculateChecksum(attempt.file)
       );
@@ -315,7 +322,7 @@ export class OctoloadClient {
       this.finalize(
         {
           storageKey: presign.storageKey,
-          checksum: attempt.checksum,
+          ...(attempt.calculateChecksum && { checksum: attempt.checksum }),
           ...(attempt.parts && { parts: attempt.parts }),
           ...(reconcile && { reconcile: true }),
         },
@@ -382,6 +389,7 @@ export class OctoloadClient {
         (!status || status >= 500 || status === 429 || status === 401)
       )
         retry = 'retry-finalize';
+      if (!aborted && phase === 'checksum') retry = 'retry-finalize';
       if (code === 'UPLOAD_MISSING') retry = 'restart-upload';
       if (attempt.presign?.multipart) retry = 'never';
       const message =
