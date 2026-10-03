@@ -52,7 +52,7 @@ debugging. Stable codes include `AUTHENTICATION_REQUIRED`, `VALIDATION_ERROR`,
 CORS or a connection problem; it does not identify which one.
 
 The API timeout covers the response body as well as headers; the PUT timeout
-covers the single XHR. Both timeout settings must be positive finite milliseconds.
+covers the single XHR. Both timeout settings must be integer milliseconds from 1 through 2,147,483,647.
 Defaults are 30 seconds and 120 seconds respectively; adjust for large uploads.
 Checksum computation needs Web Crypto in a secure browser context. Cancellation
 is checked around checksum computation but cannot interrupt an in-flight digest.
@@ -62,7 +62,10 @@ is checked around checksum computation but cannot interrupt an in-flight digest.
 There are no automatic upload retries. Keep the same client and failure object
 in memory, then call `client.recoverUpload(failure, options)` after the user
 chooses recovery. Recovery emits new events with the original upload ID and an
-incremented attempt number. Supply callbacks again for that recovery attempt.
+incremented attempt number. A recovery handle is single-use: if recovery fails,
+keep the new `UploadFailure` for the next attempt. This releases retained file
+state after success and prevents duplicate attempts from a stale error.
+Supply callbacks again for that recovery attempt.
 
 | `retry` | Action |
 | --- | --- |
@@ -86,7 +89,9 @@ Anonymous already-ready uploads cannot use owner-based reconciliation.
 Add callbacks to shared handler options for either framework:
 
 ```ts
-const options = {
+import type { NextJSHandlerOptions } from 'octoload/nextjs';
+
+const options: NextJSHandlerOptions = {
   ...uploadHandlerOptions,
   onEvent(event) {
     logger.info(event, 'octoload');
@@ -104,7 +109,7 @@ duration, status, and safe error code. Authentication failures are observed too.
 Unexpected exceptions retain generic HTTP responses; their original cause is
 available only to the server's optional `onError` callback.
 
-Every base-handler response returns `X-Request-Id`. Upload requests send
+Handler responses, including early framework parameter failures, return `X-Request-Id`. Upload requests send
 `X-Octoload-Upload-Id`; the server accepts only 1–64 ASCII letters, digits,
 underscores, or hyphens and echoes it. This is untrusted correlation metadata,
 never authorization. Error responses add `X-Octoload-Error-Code` while preserving
@@ -117,3 +122,23 @@ traces to general telemetry. Keep browser and API on the same origin for the
 standard session setup. Cross-origin APIs require application-managed cookie/CORS
 configuration, including allowing the upload correlation header and exposing the
 response correlation/error headers. These headers are never sent to the bucket.
+
+## Upgrading from 0.2.x
+
+No schema migration is required for this release. Upgrade the client and server
+package together to use recovery and correlation headers.
+
+- API requests now time out after 30 seconds, and single PUT after 120 seconds.
+  Increase `requestTimeoutMs` or `uploadTimeoutMs` for slower environments.
+- `uploadFile` rejects with `UploadFailure`, which still extends `OctoloadError`.
+  Replace upload-specific `instanceof NetworkError` or `instanceof UploadError`
+  checks with `UploadFailure` plus `phase` and `code`. Abort and timeout now have
+  specific `UPLOAD_ABORTED` and `UPLOAD_TIMEOUT` codes.
+- Observer exceptions and rejected promises are contained. Do not use callbacks
+  to intentionally stop an upload; use `AbortSignal` instead.
+- Cancellation and timeout do not roll back storage or server work already
+  completed. Recovery is explicit and never repeats PUT. A canceled attempt has
+  no automatic retry policy; abandoned uploads remain eligible for cleanup.
+- `uploadMultiple` is not atomic: other files in a running batch can finish even
+  when one fails. Use per-upload IDs to track outcomes and a shared signal when
+  you want to cancel the remaining work.

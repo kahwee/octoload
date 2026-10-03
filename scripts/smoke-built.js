@@ -53,6 +53,7 @@ try {
     'docs/nextjs.md',
     'docs/integrations.md',
     'docs/testing.md',
+    'docs/observability.md',
     'docs/releasing.md',
     'docs/databases.md',
     'examples/README.md',
@@ -104,6 +105,8 @@ import * as next from 'octoload/nextjs';
 import * as router from 'octoload/react-router';
 assert.equal(typeof library.createPresignHandler, 'function');
 assert.equal(typeof client.OctoloadClient, 'function');
+assert.equal(typeof client.UploadFailure, 'function');
+assert.equal(typeof client.OctoloadClient.prototype.recoverUpload, 'function');
 assert.equal(typeof next.createPresignHandler, 'function');
 assert.equal(typeof router.createPresignHandler, 'function');
 const require = createRequire(import.meta.url);

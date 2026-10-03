@@ -1,3 +1,4 @@
+import { observeRequest } from '../handlers/observability.js';
 import type { HandlerContext, HandlerOptions } from '../handlers/index.js';
 import {
   createDeleteImageHandler,
@@ -80,7 +81,15 @@ export function createReactRouterGetImageHandler(
   return async ({ request, params }: LoaderFunctionArgs) => {
     const imageId = params?.imageId;
     if (!imageId) {
-      return new Response('Image ID required', { status: 400 });
+      return observeRequest(
+        options,
+        'get',
+        async () =>
+          new Response('Image ID required', {
+            status: 400,
+            headers: { 'Cache-Control': 'no-store' },
+          })
+      )(request);
     }
 
     const context: HandlerContext = {
@@ -107,7 +116,15 @@ export function createReactRouterDeleteImageHandler(
   return async ({ request, params }: ActionFunctionArgs) => {
     const imageId = params?.imageId;
     if (!imageId) {
-      return new Response('Image ID required', { status: 400 });
+      return observeRequest(
+        options,
+        'delete',
+        async () =>
+          new Response('Image ID required', {
+            status: 400,
+            headers: { 'Cache-Control': 'no-store' },
+          })
+      )(request);
     }
 
     const context: HandlerContext = {

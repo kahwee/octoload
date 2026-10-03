@@ -1,11 +1,12 @@
 # Next.js setup with Better Auth
 
-This guide targets Octoload 0.2.0. Use Node.js 24+; Bun is optional.
+This guide targets the Octoload 0.3.0 GitHub release candidate. npm publication
+is pending; use the tarball below. Use Node.js 24+; Bun is optional.
 
 You need Node.js 24+, an existing Next.js app with PostgreSQL, a Drizzle database connection, a Better Auth instance exported from `src/lib/auth.ts`, and an S3 bucket. For Cloudflare R2, use the [R2 variant](integrations.md#cloudflare-r2-variant).
 
 ```bash
-pnpm add octoload@0.2.0 drizzle-orm pg
+pnpm add https://github.com/kahwee/octoload/releases/download/v0.3.0/octoload-0.3.0.tgz drizzle-orm pg
 pnpm add -D drizzle-kit @types/pg
 pnpm exec octoload init --framework nextjs --adapter s3 --auth better-auth
 pnpm exec octoload generate --output src/db/upload-schema.ts
@@ -129,3 +130,16 @@ Apply a CORS rule to the bucket so browsers at your app origin can send the sign
 
 This JSON shape works in the [S3 CORS editor](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ManageCorsUsing.html) and the [R2 dashboard CORS editor](https://developers.cloudflare.com/r2/buckets/cors/). Add other headers or methods if your application sends them. If you use a local development origin, add it explicitly.
 
+
+### Errors, recovery, and diagnostics
+
+See [observability and recovery](observability.md) for typed errors, event hooks,
+timeout configuration, cancellation, and recovery after a lost response. Keep
+one client instance when offering recovery, and pass the latest failure object
+to `recoverUpload`. Add server observers to the shared `uploadHandlerOptions` so
+presign, finalize, reads, and deletes all use the same logging configuration.
+
+Test CORS in a real browser: a successful Node upload does not exercise it.
+For JavaScript downloads or canvas access, allow `GET` and `HEAD` as needed and
+set `crossOrigin="anonymous"` before assigning an image's signed URL. The
+[browser E2E guide](testing.md#browser-e2e) covers a complete Next.js lifecycle.

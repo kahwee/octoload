@@ -128,13 +128,52 @@ describe('HTTP boundaries redact arbitrary provider failures', () => {
     ['get', createNextJSGetImageHandler],
     ['delete', createNextJSDeleteImageHandler],
   ])('redacts rejected Next.js %s route parameters', async (_name, factory) => {
-    const response = await factory(frameworkOptions)(request(), {
-      params: Promise.reject(
-        new Error(`Parameter resolution failed ${secret}`)
-      ),
-    });
+    const onEvent = vi.fn();
+    const onError = vi.fn();
+    const response = await factory({ ...frameworkOptions, onEvent, onError })(
+      request(),
+      {
+        params: Promise.reject(
+          new Error(`Parameter resolution failed ${secret}`)
+        ),
+      }
+    );
+    expect(response.headers.get('X-Request-Id')).toBeTruthy();
+    expect(onEvent).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        operation: _name,
+        type: 'request.failed',
+        code: 'INTERNAL_ERROR',
+      })
+    );
+    expect(onError).toHaveBeenCalledOnce();
+    expect(JSON.stringify(onEvent.mock.calls)).not.toContain(secret);
     await assertSafeFailure(response);
   });
+
+  it.each([
+    ['get', createReactRouterGetImageHandler],
+    ['delete', createReactRouterDeleteImageHandler],
+  ])(
+    'observes missing React Router %s parameters without changing its response',
+    async (operation, factory) => {
+      const onEvent = vi.fn();
+      const response = await factory({ ...frameworkOptions, onEvent })({
+        request: request(),
+        params: {},
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toBe('Image ID required');
+      expect(response.headers.get('X-Request-Id')).toBeTruthy();
+      expect(onEvent).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          operation,
+          type: 'request.failed',
+          code: 'VALIDATION_ERROR',
+        })
+      );
+    }
+  );
 
   it('prevents caching successful private metadata and signed download URLs', async () => {
     const image = {

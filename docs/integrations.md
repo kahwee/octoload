@@ -77,7 +77,6 @@ This cleans up single PUT uploads. If you use the storage adapter's lower-level 
 - The core upload flow uses single PUT on S3 and R2. It rejects `strategy: 'multipart'` and finalize requests with `parts`. Multipart types and low-level adapter methods exist, but there is no multipart server workflow.
 - The schema generator emits PostgreSQL tables by default and SQLite tables with `--dialect sqlite`; see [database setup](databases.md). The `upload_sessions`, `asset_variants`, and `image_tags` tables are available in the schema, but the current upload flow writes only `images`. Image processing, tag writes, custom storage adapters and MySQL are not implemented by the core flow.
 
-
 ## Content-validation tradeoff
 
 Octoload checks declared size and content type, without downloading or decoding
@@ -90,8 +89,8 @@ Private ownership checks and size limits still apply, but do not validate conten
 Keep upload routes authenticated, use private storage by default, and set size
 and type limits appropriate for your app. Applications that process or publish
 untrusted images should add their own bounded validation before those operations.
-Octoload's optional decoding/validation layer is deferred to a future feature;
-it is not part of the 0.2.0 release scope.
+Image-byte decoding and validation are not implemented. Add an application-level
+validator before publishing content when that guarantee is required.
 
 ## Upload integrity and upgrades
 

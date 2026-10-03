@@ -4,16 +4,19 @@ Upload images straight from your browser to **Amazon S3 or Cloudflare R2**.
 Octoload connects a lightweight browser client to your app’s authentication,
 PostgreSQL or SQLite metadata, and framework handlers. You own the storage and the data.
 
-Version **0.2.1** adds persistent PGlite scaffolding and stronger upload error handling.
+**0.3.0** adds upload observability, cancellation, timeouts, and recovery after lost responses.
+This checkout is 0.3.0, unreleased. npm `latest` is still 0.2.1; the
+[GitHub release candidate](https://github.com/kahwee/octoload/releases/tag/v0.3.0)
+provides the reviewed `octoload-0.3.0.tgz` package.
 
 ## Install
 
 Use Node.js 24+. Bun is optional. Choose PostgreSQL or SQLite for metadata.
 
-In your existing Next.js app with PostgreSQL, Drizzle, and Better Auth:
+To try the release candidate in an existing Next.js app with PostgreSQL, Drizzle, and Better Auth:
 
 ```bash
-pnpm add octoload@0.2.1 drizzle-orm pg
+pnpm add https://github.com/kahwee/octoload/releases/download/v0.3.0/octoload-0.3.0.tgz drizzle-orm pg
 pnpm add -D drizzle-kit @types/pg
 pnpm exec octoload init --framework nextjs --adapter s3 --auth better-auth
 pnpm exec octoload generate --output src/db/upload-schema.ts
@@ -76,7 +79,11 @@ PUTs the file directly to the bucket, then finalizes the upload. Your app checks
 stored size and content type before marking the image ready. Private reads use
 signed GET URLs; private reads and all deletes enforce ownership through your app’s session.
 
-`uploadMultiple(files)` uploads in batches of three.
+`uploadMultiple(files)` uploads in batches of three. Use `onEvent` for timed
+phase events, `onError` for structured failures, and `recoverUpload` to reconcile
+an uncertain upload without sending the file again. See
+[observability and recovery](https://github.com/kahwee/octoload/blob/main/docs/observability.md),
+including the new timeout defaults and upgrade notes.
 
 ## Configure your app
 
@@ -156,10 +163,10 @@ pnpm install --frozen-lockfile
 pnpm run test:docs
 ```
 
-CI runs type, lint, format, coverage, documentation, and packed-package checks.
+CI runs type, lint, format, coverage, documentation, packed-package, and browser E2E checks.
 The [contribution guide](https://github.com/kahwee/octoload/blob/main/CONTRIBUTING.md) lists the full verification command.
 The [storage harnesses](https://github.com/kahwee/octoload/blob/main/docs/testing.md) check private R2 storage with Cloudflare
 `cf`, and signed uploads and replay protection with dedicated S3/R2 credentials.
-Bucket uploads and database migrations need a configured integration environment.
+The browser suite runs without credentials against local HTTP storage, or against a dedicated R2 bucket with test credentials. See the testing guide for commands and verified boundaries.
 
 [MIT license](https://github.com/kahwee/octoload/blob/main/LICENSE).

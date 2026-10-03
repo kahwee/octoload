@@ -1,7 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — Unreleased
 
+GitHub release candidate; npm publication is pending. npm `latest` remains 0.2.1.
+
+- Add phase-specific `UploadFailure` errors, isolated `onEvent`/`onError` hooks, and upload/request correlation across browser and server handlers.
+- Add AbortSignal cancellation, configurable API and single-PUT timeouts, and explicit `recoverUpload` without replaying PUT. Recovery verifies processing uploads or returns the authenticated owner's already-ready row.
+- Add Chromium E2E tests through Next.js, cookie-backed test sessions, SQLite, and local HTTP storage or a real private R2 bucket; cover lost responses, session expiry, cancellation, timeout, ownership, and concurrent uploads.
+- Fix Chromium empty 204 response handling and rejected async progress callbacks in batched uploads.
+- Reject overflowing timer values, consume recovery handles after use, and observe early framework parameter failures.
+- Refresh setup, observability, testing, and release guides. See the [0.3.0 upgrade notes](docs/observability.md#upgrading-from-02x).
 - Update the AWS S3 client and request presigner to 3.1143.0 and the Next.js development dependency to 16.3.7; refresh compatible transitive dependencies.
 
 ## 0.2.1 — 2026-10-01

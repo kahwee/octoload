@@ -1,129 +1,87 @@
-# Release checklist
+# Releasing Octoload
 
-## 0.2.0 release scope
+## Current candidate
 
-**0.2.0 was published on 2026-10-01 and verified as npm `latest`.** The registry
-tarball matched the reviewed artifact byte-for-byte, and a fresh Node 24 consumer
-installed it and passed ESM/CJS imports, CLI version and both dialect scaffolds.
-The GitHub release is [v0.2.0](https://github.com/kahwee/octoload/releases/tag/v0.2.0).
+The 0.3.0 candidate adds upload observability, cancellation, configurable
+timeouts, and explicit recovery. It includes browser E2E coverage through
+Next.js, test sessions, SQLite, and real R2. See the [changelog](../CHANGELOG.md)
+and [upgrade notes](observability.md#upgrading-from-02x).
 
-0.2.0 adds SQLite alongside PostgreSQL and includes the earlier upload hardening.
-The source and release artifact are verified separately from npm publication.
-Mark the changelog released only after the registry confirms success.
+npm `latest` remains 0.2.1 until registry publication is verified. A GitHub
+release candidate and attached tarball do not imply npm publication. Keep the
+changelog marked unreleased and document tarball installation while npm is
+pending. Previous npm releases are [0.2.1](https://github.com/kahwee/octoload/releases/tag/v0.2.1)
+and [0.2.0](https://github.com/kahwee/octoload/releases/tag/v0.2.0).
 
-Current scope is single-PUT S3/R2 image uploads, PostgreSQL/SQLite metadata, and
-Next.js/React Router scaffolds. Decoding, checksum verification, multipart server
-workflows, hooks, tag writes, custom storage providers and MySQL remain future
-work. See [accepted tradeoffs](#accepted-scope-and-future-work).
+## Prepare and audit
 
-## 0.2.1 release scope
+1. Use Node 24+ and the exact pnpm version in `package.json`. Install with
+   `pnpm install --frozen-lockfile`, install Chromium with
+   `pnpm exec playwright install chromium`, and run the full
+   [contribution checks](../CONTRIBUTING.md#development-commands).
+2. Run `pnpm audit --prod` and `pnpm audit`. Investigate findings; an empty
+   advisory report does not replace a source or authorization review.
+3. Review ownership, private defaults, conditional PUT, finalize races, error
+   redaction, observer isolation, cancellation, and recovery. Check package
+   exports and generated scaffolds for both frameworks and SQL dialects.
+4. Run [live storage/database and browser tests](testing.md) with dedicated test
+   resources. R2 results do not establish live S3 parity. Browser tests use a
+   local test session provider; check deployed authentication and network
+   PostgreSQL separately.
+5. Check `pnpm view octoload version dist-tags` and existing GitHub tags before
+   choosing a version. Update the manifest, README, setup guide, changelog, and
+   upgrade notes together. Keep historical version references when meaningful.
+6. Pack and review the exact artifact:
 
-**0.2.1 was published on 2026-10-01 and verified as npm `latest`.** The registry
-tarball matched the reviewed artifact byte-for-byte and passed SHA512 integrity.
-The GitHub release is [v0.2.1](https://github.com/kahwee/octoload/releases/tag/v0.2.1).
+   ```sh
+   pnpm pack --out /tmp/octoload-0.3.0.tgz
+   tar -tzf /tmp/octoload-0.3.0.tgz
+   sha512sum /tmp/octoload-0.3.0.tgz
+   pnpm publish /tmp/octoload-0.3.0.tgz --dry-run --ignore-scripts --access public --tag next
+   ```
 
-0.2.1 adds explicit PGlite scaffolding, disk persistence examples, failed-delete
-and metadata-race fixes, and controlled HTTP error handling. Its release gates
-include 294 tests, Node 24 checks, packed consumer checks, actual R2 lifecycles
-with both SQLite and PGlite, and 64 rejected signature mutations.
+   `test:package` checks packed exports, declarations, CLI version, scaffolds,
+   shipped guides, and the signing example. Also install the reviewed tarball
+   into a clean temporary consumer. Confirm that no credentials, test fixtures,
+   QA logs, or source maps containing private data are present.
+7. Commit the reviewed source and docs and wait for CI. A GitHub candidate may
+   attach the tarball and SHA512 checksum under an explicitly marked prerelease.
+   Tag the exact tested commit. Keep generated `dist/` and QA logs out of git.
 
-## Before an authorized release
+## Publish to npm when authorized
 
-1. Use Node 24+ and the exact pnpm version in `package.json`. Install with the
-   frozen lockfile and run the full [contribution checks](../CONTRIBUTING.md).
-2. Review the actual tarball with `pnpm pack --out /tmp/octoload-0.2.1.tgz`.
-   `test:package` packs, extracts, and loads the public exports from a temporary
-   consumer, checks the CLI version/scaffolds, and verifies shipped guides and
-   the signing example. It does not contact a bucket or publish anything.
-3. Verify the [live storage harness](testing.md) and real browser CORS flow with
-   dedicated S3/R2 test resources. Offline tests cannot establish provider or
-   deployment compatibility. Do not use customer or production data for a test.
-4. Check `pnpm view octoload version` and `pnpm view octoload dist-tags` again.
-   Decide the release version and update `package.json`, this page, the README,
-   install examples, and the changelog together. Mark the changelog released only
-   when publication actually succeeds.
-5. Obtain explicit authorization to publish the reviewed artifact. Use the
-   account's normal npm authentication flow; never put credentials in the repo.
-6. After publication, verify the npm version/dist-tag, downloaded tarball,
-   rendered README, package exports, and CLI version. Verify the install instructions match the published version.
+Use the account's normal npm login/2FA flow; never store credentials in the
+repository. `pnpm whoami` verifies the current authenticated account. A dry run
+does not prove publish authorization. Use pinned pnpm because this repository's
+`devEngines.packageManager` rejects a different package manager.
 
-A successful publish can precede install availability while npm runs its
-[publish-time scan](https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/).
-Wait for the version and tarball to appear, verify integrity, and then finalize
-release status. Do not retry publication merely because the first read is 404.
+Publish the previously built and verified tarball with `--ignore-scripts` only
+after explicit npm publication authorization. `--tag next` leaves `latest` on
+the existing version; promotion to `latest` is a separate authorized choice.
+Do not change tags or claim stable availability as a side effect of preparing
+a GitHub candidate.
 
-## Repository About text
+After publication:
 
-Suggested description: “Browser-to-S3/R2 single-PUT image uploads with PostgreSQL or SQLite
-metadata and Next.js/React Router scaffolds.”
+1. Verify the registry version and intended dist-tag. Allow registry propagation;
+   do not repeat publication just because the first read is 404.
+2. Download the registry tarball and compare bytes and SHA512 integrity with the
+   reviewed artifact. Install it into a clean consumer and verify all four
+   exports, CLI version, and scaffold generation.
+3. Verify the npm README and installation instructions. Mark npm publication
+   complete in the changelog and release status, and update install commands to
+   the published version. Keep GitHub candidate/stable status accurate.
 
-Suggested topics: `image-upload`, `s3`, `cloudflare-r2`, `postgresql`, `sqlite`, `drizzle`,
-`nextjs`, `react-router`, `typescript`.
+A manual trusted-publishing workflow and npm publisher binding are not currently
+configured. If added later, use the [npm trusted-publisher setup](https://docs.npmjs.com/trusted-publishers/)
+and short-lived credentials rather than committing tokens.
 
-Changing the GitHub About panel requires repository settings access; committing
-this file does not update those settings.
+## Scope to preserve
 
-## 0.2.0 database release plan
-
-1. Prepare one additive feature release: keep PostgreSQL as the default, add
-   `--dialect sqlite` to initialization and generation, and preserve all four
-   public entry points. Include the unreleased 0.1.9 security changes.
-2. Gate on the full checks, SQLite and PGlite migrations/lifecycle/race tests,
-   runnable examples, and packed CLI generation for both dialects on Node 24/26.
-   Review the Drizzle database type declarations from an external consumer.
-3. Run signed upload and database-backed lifecycle tests against private R2.
-   Verify browser CORS and real framework session wiring before recommending a
-   deployment. Test network PostgreSQL connection pooling separately; PGlite is
-   engine coverage, not a server topology test. Repeat the provider harness on S3
-   before claiming live S3 parity.
-4. Review the tarball and install it in a clean application for each dialect.
-   Driver packages belong to the application; adding SQLite must not force
-   PostgreSQL users to install a SQLite driver. Review FK enablement, timestamp
-   representation, cleanup retries, and upgrade instructions.
-5. Publish only after explicit authorization and successful gates. Verify npm's
-   artifact, imports, CLI version and generated schemas, then tag/changelog using
-   the repository's release convention. Keep release candidates distinct from published versions.
-
-Existing PostgreSQL applications keep their schema and migrations. SQLite is a
-choice for new databases; cross-engine data migration needs a separate reviewed
-export/import. Image decoding, checksum verification and upload revocation after
-object deletion remain outside this feature. See [database setup](databases.md)
-and [test coverage](testing.md) for the verified boundaries.
-
-## Publishing setup verified
-
-The `kahwee` npm account is listed as the maintainer. Use interactive npm authentication for local publishing. Rehearse the reviewed tarball without publishing:
-
-```sh
-pnpm pack --out /tmp/octoload-0.2.1.tgz
-pnpm publish /tmp/octoload-0.2.1.tgz --dry-run --ignore-scripts --access public --tag next
-```
-
-Use the pinned pnpm to publish: direct `npm publish` in this checkout fails the
-intentional `devEngines.packageManager` requirement. `--ignore-scripts` here is
-for a built, previously verified tarball; it does not replace the full checks.
-After release authorization and an interactive npm login/2FA, the corresponding
-publish command removes `--dry-run`. Publishing with `--tag next` leaves `latest`
-on the existing version for preview evaluation; promotion is a separate action.
-A dry run does not prove that registry authentication or publication will succeed.
-
-For repeatable releases, configure [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/)
-for this repository and a dedicated manual GitHub Actions workflow. It provides
-short-lived OIDC credentials and automatic provenance. The workflow and npm
-trusted-publisher binding are not configured yet. Do not add persistent R2 or npm
-credentials to the repository while setting this up.
-
-## Accepted scope and future work
-
-0.2.0 deliberately validates object metadata rather than decoding image bytes.
-Same-size non-image payloads can be accepted; the live adversarial harness proves
-this boundary. Keeping the flow lightweight avoids decoder dependencies, server
-downloads and resource policies. See the [content-validation tradeoff](integrations.md#content-validation-tradeoff).
-Decoding is future work, not a gate for this release. Keep private defaults,
-authentication, and configured size/type limits; applications can add validation
-before processing or publishing untrusted content.
-
-Focus remaining integration work on browser CORS and real session-authenticated
-framework routes through upload, finalize, read and delete. Consider an optional,
-bounded image validator later, with explicit pixel/frame/time limits and failure
-handling, when applications need it.
+Octoload uses single PUT uploads and verifies stored size/content type. It does
+not decode image bytes, verify checksums, implement a multipart server workflow,
+or revoke a signed PUT URL when an object is deleted. Keep those limits explicit
+in release notes; see [integration scope](integrations.md#limits-access-and-current-scope).
+PostgreSQL remains the CLI default. SQLite and PGlite retain foreign-key,
+Date/boolean, migration, and disk-persistence checks. Do not modify an application's
+existing database during release tests.

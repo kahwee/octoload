@@ -64,6 +64,53 @@ function setup() {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('upload observability and recovery', () => {
+  it.each([0, -1, 0.5, NaN, Infinity, 2_147_483_648])(
+    'rejects invalid/overflowing timeout %s before any request',
+    (value) => {
+      expect(
+        () => new OctoloadClient({ baseUrl: '', requestTimeoutMs: value })
+      ).toThrow('integer milliseconds');
+      expect(
+        () => new OctoloadClient({ baseUrl: '', uploadTimeoutMs: value })
+      ).toThrow('integer milliseconds');
+    }
+  );
+
+  it('consumes recovery handles and increments replacement attempts', async () => {
+    const { fetch, client } = setup();
+    fetch
+      .mockResolvedValueOnce(presign())
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const original = await client.uploadFile(file()).catch((error) => error);
+    fetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const events: UploadEvent[] = [];
+    const second = await client
+      .recoverUpload(original, {
+        onEvent: (event) => {
+          events.push(event);
+        },
+      })
+      .catch((error) => error);
+    expect(events.at(-1)).toMatchObject({ attempt: 2, type: 'phase.failed' });
+    await expect(client.recoverUpload(original)).rejects.toThrow(
+      'cannot be recovered'
+    );
+    fetch.mockResolvedValueOnce(finalized());
+    await client.recoverUpload(second, {
+      onEvent: (event) => {
+        events.push(event);
+      },
+    });
+    expect(events.at(-1)).toMatchObject({
+      attempt: 3,
+      type: 'phase.succeeded',
+    });
+    await expect(client.recoverUpload(second)).rejects.toThrow(
+      'cannot be recovered'
+    );
+    expect(XHR.sends).toBe(1);
+  });
+
   it('isolates all hooks and emits timed, redacted phase events', async () => {
     const { fetch, client } = setup();
     fetch.mockResolvedValueOnce(presign()).mockResolvedValueOnce(finalized());

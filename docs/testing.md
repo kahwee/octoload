@@ -96,7 +96,7 @@ node --env-file=.env.r2-test --test scripts/test-db-sqlite-live.js
 ```
 
 Both live database tests upload an actual PNG, finalize via R2 HeadObject and database
-SQL, download and compares bytes, check replay rejection, and delete both
+SQL, download and compare bytes, check replay rejection, and delete both
 object and database row. Use a local ignored credentials file with mode 0600;
 never commit it. PGlite runs an actual PostgreSQL engine without a network server,
 so these checks do not prove connection pooling or multi-process isolation.
@@ -132,8 +132,9 @@ HTTP regressions exercise primitive/malformed JSON, provider/driver/authenticati
 errors, both framework adapters and rejected route parameters. Unexpected errors
 return a generic 500; client validation returns 400; private missing/denied reads
 share a 404. Responses containing signed URLs or private metadata use `no-store`.
-Browser XHR abort and timeout events reject the upload and skip finalization;
-this does not add a cancellation API or configure a timeout duration.
+The 0.2.1 regressions check that XHR abort and timeout events reject the upload
+and skip finalization. Version 0.3.0 adds an AbortSignal cancellation API and
+configurable timeout durations; see [observability](observability.md).
 
 Disk reopen examples verify persistence for both databases. The PGlite scaffold
 has also been checked with real `drizzle-kit generate` and `push` using only

@@ -1,3 +1,4 @@
+import { observeRequest } from '../handlers/observability.js';
 // Conditional type definition for Next.js compatibility
 type NextRequest = Request & {
   nextUrl?: {
@@ -77,14 +78,10 @@ export function createNextJSGetImageHandler(options: NextJSHandlerOptions) {
         params: resolvedParams,
       };
       return await baseHandler(request, resolvedParams.imageId, context);
-    } catch {
-      return new Response(JSON.stringify({ error: 'Internal server error' }), {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store',
-        },
-      });
+    } catch (error) {
+      return observeRequest(options, 'get', async () => {
+        throw error;
+      })(request);
     }
   };
 }
@@ -109,14 +106,10 @@ export function createNextJSDeleteImageHandler(options: NextJSHandlerOptions) {
         params: resolvedParams,
       };
       return await baseHandler(request, resolvedParams.imageId, context);
-    } catch {
-      return new Response(JSON.stringify({ error: 'Internal server error' }), {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store',
-        },
-      });
+    } catch (error) {
+      return observeRequest(options, 'delete', async () => {
+        throw error;
+      })(request);
     }
   };
 }

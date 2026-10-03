@@ -192,9 +192,12 @@ export class OctoloadClient {
 
   constructor(config: OctoloadClientConfig) {
     for (const value of [config.requestTimeoutMs, config.uploadTimeoutMs]) {
-      if (value !== undefined && (!Number.isFinite(value) || value <= 0)) {
+      if (
+        value !== undefined &&
+        (!Number.isInteger(value) || value <= 0 || value > 2_147_483_647)
+      ) {
         throw new ValidationError(
-          'Timeouts must be positive finite milliseconds'
+          'Timeouts must be integer milliseconds between 1 and 2147483647'
         );
       }
     }
@@ -233,12 +236,13 @@ export class OctoloadClient {
         signal
       )
     );
+    const presign = attempt.presign;
     notify(onStateChange, 'uploading');
     await this.phase(attempt, 'put', options, async () => {
-      if (attempt.presign!.multipart) {
+      if (presign.multipart) {
         const result = await this.uploadMultipart(
           file,
-          attempt.presign!,
+          presign,
           (progress) => notify(onProgress, progress),
           signal
         );
@@ -246,7 +250,7 @@ export class OctoloadClient {
       } else {
         await this.uploadSingle(
           file,
-          attempt.presign!,
+          presign,
           (progress) => notify(onProgress, progress),
           signal
         );
@@ -270,6 +274,9 @@ export class OctoloadClient {
         'This failure cannot be recovered; start a new upload'
       );
     }
+    // Consume the handle. A failed recovery supplies a replacement failure;
+    // success releases the retained File even when the UI keeps the old error.
+    this.recoveries.delete(error);
     return this.finish(
       { ...previous, attempt: previous.attempt + 1 },
       options,
@@ -282,6 +289,8 @@ export class OctoloadClient {
     options: UploadOptions,
     reconcile: boolean
   ): Promise<UploadResult> {
+    const presign = attempt.presign;
+    if (!presign) throw new ValidationError('No upload to finalize');
     notify(options.onStateChange, 'finalizing');
     if (!attempt.checksum) {
       attempt.checksum = await this.phase(attempt, 'checksum', options, () =>
@@ -291,7 +300,7 @@ export class OctoloadClient {
     const image = await this.phase(attempt, 'finalize', options, () =>
       this.finalize(
         {
-          storageKey: attempt.presign!.storageKey,
+          storageKey: presign.storageKey,
           checksum: attempt.checksum,
           ...(attempt.parts && { parts: attempt.parts }),
           ...(reconcile && { reconcile: true }),
