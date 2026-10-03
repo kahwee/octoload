@@ -85,6 +85,10 @@ an uncertain upload without sending the file again. See
 [observability and recovery](https://github.com/kahwee/octoload/blob/main/docs/observability.md),
 including the new timeout defaults and upgrade notes.
 
+Server policy and lifecycle hooks are awaited; see
+[server lifecycle hooks](https://github.com/kahwee/octoload/blob/main/docs/integrations.md#server-lifecycle-hooks) for authorization,
+deletion vetoes, and post-finalize behavior.
+
 ## Configure your app
 
 Export your database from `src/db/index.ts`:

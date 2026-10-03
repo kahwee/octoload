@@ -22,9 +22,13 @@ export interface OctoloadLimits {
 }
 
 export interface OctoloadHooks {
+  /** Awaited before writes/signing. Returned metadata is validated; ownerId is preserved. */
   beforePresign?: (context: PresignContext) => Promise<PresignContext>;
+  /** Awaited after the ready transition. Reconciliation does not replay this hook. */
   afterFinalize?: (image: ImageRecord) => Promise<void>;
+  /** Awaited after authorization, before deletion. Throwing vetoes deletion. */
   onDelete?: (image: ImageRecord) => Promise<void>;
+  /** Unsupported: configuring this hook throws at construction. */
   onProcessVariant?: (variant: VariantRecord) => Promise<void>;
 }
 

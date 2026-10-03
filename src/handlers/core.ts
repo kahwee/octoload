@@ -12,6 +12,7 @@ import type {
   FinalizeRequest,
   ImageRecord,
   OctoloadConfigLike,
+  OctoloadHooks,
   PresignRequest,
   PresignResponse,
 } from '../types/index.js';
@@ -57,6 +58,7 @@ export class OctoloadCore<
   private db: PostgresOperations;
   private schema: TSchema;
   private storage: S3StorageAdapter;
+  private hooks: OctoloadHooks;
   private limits?: { maxFileSize?: number; allowedTypes?: string[] };
 
   constructor(config: OctoloadConfigLike, db: TDb, schema: TSchema) {
@@ -65,6 +67,12 @@ export class OctoloadCore<
     this.db = db as PostgresOperations;
     this.schema = schema;
     this.limits = config.limits;
+    this.hooks = { ...config.hooks };
+    if (this.hooks.onProcessVariant) {
+      throw new Error(
+        'onProcessVariant is not supported by the core upload flow'
+      );
+    }
 
     // Initialize storage adapter based on config
     const storageConfig =
@@ -90,6 +98,21 @@ export class OctoloadCore<
    */
   async presign(request: PresignRequest): Promise<PresignResponse> {
     request = presignRequestSchema.parse(request);
+    const ownerId = request.ownerId;
+    const beforePresign = this.hooks.beforePresign;
+    if (beforePresign) {
+      const transformed = await this.runHook('beforePresign', () =>
+        beforePresign({
+          ...request,
+          user: ownerId ? { id: ownerId } : undefined,
+        })
+      );
+      // Hooks may change upload metadata, but never the session-derived owner.
+      request = presignRequestSchema.parse({
+        ...presignRequestSchema.parse(transformed),
+        ownerId,
+      });
+    }
     if (request.strategy === 'multipart') {
       throw new Error(
         'Multipart uploads are not supported by the core upload flow'
@@ -273,6 +296,12 @@ export class OctoloadCore<
       throw new Error('Upload is no longer processing');
     }
 
+    const afterFinalize = this.hooks.afterFinalize;
+    if (afterFinalize) {
+      await this.runHook('afterFinalize', () =>
+        afterFinalize(structuredClone(updatedImage))
+      );
+    }
     return updatedImage;
   }
 
@@ -423,6 +452,11 @@ export class OctoloadCore<
       throw new Error('Access denied');
     }
 
+    const onDelete = this.hooks.onDelete;
+    if (onDelete) {
+      await this.runHook('onDelete', () => onDelete(structuredClone(image)));
+    }
+
     // Hide the record before touching storage. A failed delete must not leave a
     // ready record pointing to missing bytes, and finalize must lose this race.
     const claimed = await this.db
@@ -559,6 +593,18 @@ export class OctoloadCore<
   private eq(column: unknown, value: unknown) {
     // biome-ignore lint/suspicious/noExplicitAny: Drizzle's overloaded helper needs the runtime column type.
     return eq(column as any, value);
+  }
+
+  private async runHook<T>(
+    name: string,
+    callback: () => Promise<T>
+  ): Promise<T> {
+    try {
+      return await callback();
+    } catch (cause) {
+      // Hook errors are server-only; never expose their messages as HTTP errors.
+      throw new Error(`Upload hook ${name} failed`, { cause });
+    }
   }
 
   private and(...conditions: unknown[]) {

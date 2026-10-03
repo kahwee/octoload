@@ -9,6 +9,8 @@ import {
 import { OctoloadCore } from '../handlers/core.js';
 import * as schema from '../templates/upload-schema-sqlite.js';
 import { S3StorageAdapter } from '../storage/s3-adapter.js';
+import { createPresignHandler } from '../handlers/index.js';
+import type { PresignContext } from '../types/index.js';
 
 vi.mock('../storage/s3-adapter.js', () => ({
   S3StorageAdapter: vi.fn(function StorageMock() {
@@ -68,6 +70,110 @@ async function presign() {
 }
 
 describe('SQLite metadata with real libSQL and generated migrations', () => {
+  it('awaits policy hooks, revalidates metadata, and preserves the trusted owner', async () => {
+    const beforePresign = vi.fn(async (context: PresignContext) => ({
+      ...context,
+      ownerId: 'other-owner',
+      alt: 'Approved caption',
+    }));
+    core = new OctoloadCore(
+      { ...config, hooks: { beforePresign } },
+      db,
+      schema.uploadSchema
+    );
+    const { image } = await presign();
+    expect(beforePresign).toHaveBeenCalledWith(
+      expect.objectContaining({ user: { id: 'owner' } })
+    );
+    expect(image).toMatchObject({ ownerId: 'owner', alt: 'Approved caption' });
+    beforePresign.mockResolvedValueOnce({ ...request, byteSize: -1, alt: '' });
+    await expect(core.presign(request)).rejects.toThrow();
+    expect(await db.select().from(schema.images)).toHaveLength(1);
+  });
+
+  it('a denied policy produces no row or signed URL and does not leak its error', async () => {
+    const beforePresign = vi.fn(async () => {
+      throw new Error('Access denied');
+    });
+    const handler = createPresignHandler({
+      config: { ...config, hooks: { beforePresign } },
+      db,
+      schema: schema.uploadSchema,
+    });
+    const httpRequest = new Request('https://app.test/presign', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    const response = await handler(httpRequest, {
+      request: httpRequest,
+      user: { id: 'owner' },
+    });
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: 'Internal server error' });
+    expect(await db.select().from(schema.images)).toEqual([]);
+    const storage = vi.mocked(S3StorageAdapter).mock.results.at(-1)?.value;
+    expect(storage.getPresignedPutUrl).not.toHaveBeenCalled();
+  });
+
+  it('runs finalize hooks after commit, surfaces failures, and does not replay on reconciliation', async () => {
+    const afterFinalize = vi.fn(async () => {
+      throw new Error('downstream unavailable');
+    });
+    core = new OctoloadCore(
+      { ...config, hooks: { afterFinalize } },
+      db,
+      schema.uploadSchema
+    );
+    const { storageKey, image } = await presign();
+    await expect(core.finalize({ storageKey }, 'owner')).rejects.toThrow(
+      'Upload hook afterFinalize failed'
+    );
+    expect(afterFinalize).toHaveBeenCalledWith(
+      expect.objectContaining({ id: image.id, status: 'ready' })
+    );
+    await expect(
+      core.finalize({ storageKey, reconcile: true }, 'owner')
+    ).resolves.toMatchObject({ status: 'ready' });
+    expect(afterFinalize).toHaveBeenCalledOnce();
+  });
+
+  it('runs deletion policy only for the owner and leaves vetoed rows and objects intact', async () => {
+    const onDelete = vi.fn(async (): Promise<void> => {
+      throw new Error('retention policy');
+    });
+    core = new OctoloadCore(
+      { ...config, hooks: { onDelete } },
+      db,
+      schema.uploadSchema
+    );
+    const { image } = await presign();
+    await expect(core.deleteImage(image.id, 'stranger')).rejects.toThrow(
+      'Access denied'
+    );
+    expect(onDelete).not.toHaveBeenCalled();
+    await expect(core.deleteImage(image.id, 'owner')).rejects.toThrow(
+      'Upload hook onDelete failed'
+    );
+    expect(await db.select().from(schema.images)).toHaveLength(1);
+    const storage = vi.mocked(S3StorageAdapter).mock.results.at(-1)?.value;
+    expect(storage.deleteObject).not.toHaveBeenCalled();
+    onDelete.mockResolvedValueOnce(undefined);
+    await core.deleteImage(image.id, 'owner');
+    expect(await db.select().from(schema.images)).toEqual([]);
+    expect(storage.deleteObject).toHaveBeenCalledOnce();
+  });
+
+  it('rejects unsupported variant hooks instead of silently ignoring them', () => {
+    expect(
+      () =>
+        new OctoloadCore(
+          { ...config, hooks: { onProcessVariant: async () => {} } },
+          db,
+          schema.uploadSchema
+        )
+    ).toThrow('onProcessVariant is not supported');
+  });
+
   it('runs the complete private lifecycle with Date and boolean row values', async () => {
     const { image, storageKey } = await presign();
     expect(image.createdAt).toBeInstanceOf(Date);

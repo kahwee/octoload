@@ -77,6 +77,25 @@ This cleans up single PUT uploads. If you use the storage adapter's lower-level 
 - The core upload flow uses single PUT on S3 and R2. It rejects `strategy: 'multipart'` and finalize requests with `parts`. Multipart types and low-level adapter methods exist, but there is no multipart server workflow.
 - The schema generator emits PostgreSQL tables by default and SQLite tables with `--dialect sqlite`; see [database setup](databases.md). The `upload_sessions`, `asset_variants`, and `image_tags` tables are available in the schema, but the current upload flow writes only `images`. Image processing, tag writes, custom storage adapters and MySQL are not implemented by the core flow.
 
+## Server lifecycle hooks
+
+`config.hooks.beforePresign` is awaited before database writes or URL signing.
+It receives validated upload metadata and a `user: { id }` derived from the
+trusted owner (undefined for anonymous uploads). Throw to deny the upload, or
+return adjusted metadata; the result is validated against the schema and limits.
+The hook cannot replace the session-derived `ownerId`.
+
+`config.hooks.onDelete` runs after ownership checks and before changing the row
+or deleting storage. Throwing vetoes deletion. It can run again on retries.
+`config.hooks.afterFinalize` runs after the successful transition to `ready`.
+A failure is reported, but does not roll back the committed upload; owner
+reconciliation returns that ready image without replaying the hook. These hooks
+are awaited and errors propagate, unlike telemetry observers. HTTP responses
+hide hook errors; the handler's trusted `onError` receives the underlying cause.
+Hook delivery is not durable: use an application outbox for guaranteed downstream
+work. Scheduled abandoned-upload cleanup does not invoke `onDelete`.
+Variant processing is unsupported; configuring `onProcessVariant` throws.
+
 ## Content-validation tradeoff
 
 Octoload checks declared size and content type, without downloading or decoding
