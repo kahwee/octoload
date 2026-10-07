@@ -1,5 +1,7 @@
 # Changelog
 
+- Update compatible development tooling and refresh dependency security fixes.
+
 ## 0.3.0 — Unreleased
 
 GitHub release candidate; npm publication is pending. npm `latest` remains 0.2.1.
