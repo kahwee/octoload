@@ -182,3 +182,7 @@ The [storage harnesses](https://github.com/kahwee/octoload/blob/main/docs/testin
 The browser suite runs without credentials against local HTTP storage, or against a dedicated R2 bucket with test credentials. See the testing guide for commands and verified boundaries.
 
 [MIT license](https://github.com/kahwee/octoload/blob/main/LICENSE).
+
+## CI maintenance
+
+[GitHub Actions maintenance](https://github.com/kahwee/octoload/blob/main/.github/ACTIONS.md) covers workflows, parallel checks, action versions, and weekly updates.
