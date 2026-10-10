@@ -223,7 +223,7 @@ bun examples/presign.mjs
 bun scripts/smoke-built.js
 ```
 
-These commands passed with Bun 1.4.2 on 2026-10-01 after a Node 24.19.0 build.
+These commands passed with Bun 1.4.3 on 2026-10-10 after a Node 26.7.0 build.
 Keep `pnpm` on PATH for the smoke test's pack step. This verifies Bun package
 imports, CLI scaffolding, and local S3/R2 signing only. It does not establish
 Bun-hosted Next.js/React Router, PostgreSQL driver, browser upload, or live bucket
