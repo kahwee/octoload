@@ -25,6 +25,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
 
+      - name: Test release metadata guard
+        run: node --test scripts/release-check.test.mjs
+
       - name: Reject npm lockfiles
         run: test ! -e package-lock.json
 
