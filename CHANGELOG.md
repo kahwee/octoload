@@ -1,10 +1,10 @@
 # Changelog
 
-- Update compatible development tooling and refresh dependency security fixes.
-
 ## 0.3.0 — Unreleased
 
 GitHub release candidate; npm publication is pending. npm `latest` remains 0.2.1.
+
+- Refresh the AWS S3 client/presigner to 3.1149.0, Drizzle ORM to 0.45.4, Zod to 4.6.6, Playwright to 1.64.0, and Node.js development types to 26.6.5.
 
 - Require DELETE for React Router image deletion; other methods return 405 before auth or mutation.
 - Apply tracked SQL migrations in `octoload migrate` instead of schema push; preserve offline generation.
@@ -15,7 +15,7 @@ GitHub release candidate; npm publication is pending. npm `latest` remains 0.2.1
 - Fix Chromium empty 204 response handling and rejected async progress callbacks in batched uploads.
 - Reject overflowing timer values, consume recovery handles after use, and observe early framework parameter failures.
 - Refresh setup, observability, testing, and release guides. See the [0.3.0 upgrade notes](docs/observability.md#upgrading-from-02x).
-- Update the AWS S3 client and request presigner to 3.1143.0 and the Next.js development dependency to 16.3.7; refresh compatible transitive dependencies.
+- Update the AWS S3 client and request presigner to 3.1143.0 and the Next.js development dependency to 16.4.0; refresh compatible transitive dependencies.
 
 ## 0.2.1 — 2026-10-01
 

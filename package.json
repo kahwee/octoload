@@ -102,18 +102,18 @@
     }
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1143.0",
-    "@aws-sdk/s3-request-presigner": "^3.1143.0",
+    "@aws-sdk/client-s3": "^3.1149.0",
+    "@aws-sdk/s3-request-presigner": "^3.1149.0",
     "commander": "^15.0.0",
-    "drizzle-orm": "^0.45.3",
-    "zod": "^4.6.5"
+    "drizzle-orm": "^0.45.4",
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
     "@electric-sql/pglite": "0.5.8",
     "@libsql/client": "0.18.0",
-    "@playwright/test": "^1.63.0",
-    "@types/node": "^26.6.4",
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@typescript/typescript6": "6.0.2",
     "@vitest/coverage-v8": "^5.0.3",
