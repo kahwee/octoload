@@ -1,3 +1,8 @@
+import {
+  archiveIntegrity,
+  registryState as archiveRegistryState,
+  verifyPublished,
+} from './archive-registry.mjs';
 import { appendFileSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
@@ -48,9 +53,21 @@ if (
       if (error.code !== 'ENOENT') throw error;
     }
     const version = validateRelease(pkg, process.argv[2], lock);
-    const state = process.argv.includes('--registry')
+    let state = process.argv.includes('--registry')
       ? await registryState(pkg)
       : 'unchecked';
+    if (
+      process.argv[3] === '--archive-registry' ||
+      process.argv[3] === '--verify-archive'
+    ) {
+      const integrity = archiveIntegrity(readFileSync(process.argv[4]));
+      if (process.argv[3] === '--archive-registry')
+        state = await archiveRegistryState(pkg, integrity);
+      else {
+        await verifyPublished(pkg, integrity, { tag: process.argv[5] });
+        state = 'verified';
+      }
+    }
     console.log(`Validated ${pkg.name}@${version}; registry: ${state}`);
     if (process.env.GITHUB_OUTPUT) {
       appendFileSync(
