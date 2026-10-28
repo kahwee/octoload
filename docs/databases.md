@@ -4,11 +4,11 @@ Octoload uses your Drizzle connection. Generate the schema for the database you
 run; the upload client and framework routes stay the same. PostgreSQL remains
 the default. PGlite uses the PostgreSQL schema.
 
-| Database | Schema flag | Connection |
-| --- | --- | --- |
-| PostgreSQL | `--dialect postgresql` (default) | Network PostgreSQL through Drizzle |
-| PGlite | `--driver pglite` with PostgreSQL schema | `drizzle-orm/pglite` |
-| SQLite | `--dialect sqlite` | `drizzle-orm/libsql` with local SQLite |
+| Database   | Schema flag                              | Connection                             |
+| ---------- | ---------------------------------------- | -------------------------------------- |
+| PostgreSQL | `--dialect postgresql` (default)         | Network PostgreSQL through Drizzle     |
+| PGlite     | `--driver pglite` with PostgreSQL schema | `drizzle-orm/pglite`                   |
+| SQLite     | `--dialect sqlite`                       | `drizzle-orm/libsql` with local SQLite |
 
 ## Tracked migrations and index upgrades
 
@@ -97,7 +97,8 @@ import { drizzle } from 'drizzle-orm/pglite';
 import * as schema from './upload-schema';
 
 const dataDir = process.env.DATABASE_URL;
-if (!dataDir) throw new Error('DATABASE_URL must identify a persistent PGlite directory');
+if (!dataDir)
+  throw new Error('DATABASE_URL must identify a persistent PGlite directory');
 export const client = new PGlite(dataDir);
 export const db = drizzle(client, { schema });
 ```

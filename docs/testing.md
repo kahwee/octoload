@@ -43,15 +43,15 @@ pnpm test:storage:live
 
 Set these environment variables through your local secret manager or CI secrets:
 
-| Variable | Value |
-| --- | --- |
-| `OCTOLOAD_TEST_ADAPTER` | `s3` or `r2` |
-| `OCTOLOAD_TEST_BUCKET` | Dedicated test bucket |
-| `OCTOLOAD_TEST_REGION` | AWS region, or `auto` for R2 |
-| `OCTOLOAD_TEST_ENDPOINT` | R2 account S3 endpoint; required for R2 |
-| `OCTOLOAD_TEST_ACCESS_KEY_ID` | Test account access key |
-| `OCTOLOAD_TEST_SECRET_ACCESS_KEY` | Test account secret |
-| `OCTOLOAD_TEST_SESSION_TOKEN` | Optional temporary credential token |
+| Variable                          | Value                                   |
+| --------------------------------- | --------------------------------------- |
+| `OCTOLOAD_TEST_ADAPTER`           | `s3` or `r2`                            |
+| `OCTOLOAD_TEST_BUCKET`            | Dedicated test bucket                   |
+| `OCTOLOAD_TEST_REGION`            | AWS region, or `auto` for R2            |
+| `OCTOLOAD_TEST_ENDPOINT`          | R2 account S3 endpoint; required for R2 |
+| `OCTOLOAD_TEST_ACCESS_KEY_ID`     | Test account access key                 |
+| `OCTOLOAD_TEST_SECRET_ACCESS_KEY` | Test account secret                     |
+| `OCTOLOAD_TEST_SESSION_TOKEN`     | Optional temporary credential token     |
 
 The harness uses the built adapter and actual HTTP requests. It uploads a small
 PNG, verifies its bytes, checks that replay with different bytes returns HTTP

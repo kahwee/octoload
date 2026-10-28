@@ -71,12 +71,12 @@ keep the new `UploadFailure` for the next attempt. This releases retained file
 state after success and prevents duplicate attempts from a stale error.
 Supply callbacks again for that recovery attempt.
 
-| `retry` | Action |
-| --- | --- |
-| `never` | Fix input, environment, or cancellation; do not automatically repeat. |
-| `restart-upload` | Start a fresh `uploadFile` attempt and obtain a new signed URL. |
-| `reconcile` | PUT outcome is unknown; call `recoverUpload` to verify storage before deciding. |
-| `retry-finalize` | Call `recoverUpload`; restore the session first for HTTP 401. |
+| `retry`          | Action                                                                          |
+| ---------------- | ------------------------------------------------------------------------------- |
+| `never`          | Fix input, environment, or cancellation; do not automatically repeat.           |
+| `restart-upload` | Start a fresh `uploadFile` attempt and obtain a new signed URL.                 |
+| `reconcile`      | PUT outcome is unknown; call `recoverUpload` to verify storage before deciding. |
+| `retry-finalize` | Call `recoverUpload`; restore the session first for HTTP 401.                   |
 
 Recovery never repeats PUT. It recomputes an opted-in checksum if needed and sends finalize
 with `reconcile: true`. An authenticated owner can receive the already-ready row

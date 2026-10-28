@@ -6,6 +6,7 @@ and Next.js and React Router handlers.
 ## Development Setup
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/kahwee/octoload.git
    cd octoload
@@ -13,11 +14,13 @@ and Next.js and React Router handlers.
 
 2. **Use Node.js 24 or newer**, then install dependencies with the pnpm version
    pinned in `package.json`:
+
    ```bash
    pnpm install --frozen-lockfile
    ```
 
 3. **Run development mode:**
+
    ```bash
    pnpm run dev  # Watch mode for development
    ```

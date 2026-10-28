@@ -4,8 +4,8 @@ This guide describes the checked-in workflows. Follow each linked YAML file for 
 
 ## Workflows
 
-| Workflow | Events | Jobs |
-| --- | --- | --- |
+| Workflow                   | Events                 | Jobs   |
+| -------------------------- | ---------------------- | ------ |
 | [ci.yml](workflows/ci.yml) | `push`, `pull_request` | `test` |
 
 ## Parallel steps
@@ -18,14 +18,14 @@ Steps after a group wait for it to finish. Keep prerequisites before the group a
 
 ## Action versions
 
-Versions below match the current workflow and composite-action references. SHA-pinned actions remain pinned; compare their commit with the upstream stable release when updating.
+Versions below match the current workflow and composite-action references. Actions are pinned to immutable commits; compare their commit with the upstream stable release when updating.
 
-| Action | Reference |
-| --- | --- |
-| [actions/checkout](https://github.com/actions/checkout) | `v7.0.1` |
-| [actions/setup-node](https://github.com/actions/setup-node) | `v7.0.0` |
-| [codecov/codecov-action](https://github.com/codecov/codecov-action) | `v7.1.1` |
-| [pnpm/action-setup](https://github.com/pnpm/action-setup) | `v6.1.0` |
+| Action                                                              | Reference |
+| ------------------------------------------------------------------- | --------- |
+| [actions/checkout](https://github.com/actions/checkout)             | `v7.0.1`  |
+| [actions/setup-node](https://github.com/actions/setup-node)         | `v7.1.0`  |
+| [codecov/codecov-action](https://github.com/codecov/codecov-action) | `v7.1.1`  |
+| [pnpm/action-setup](https://github.com/pnpm/action-setup)           | `v6.1.0`  |
 
 ## Greenkeeping
 
