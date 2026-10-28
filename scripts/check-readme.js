@@ -11,7 +11,9 @@ const changelog = readFileSync(join(root, 'CHANGELOG.md'), 'utf8');
 assert.ok(changelog.includes(`## ${manifest.version} —`));
 if (changelog.includes(`## ${manifest.version} — Unreleased`)) {
   assert.ok(
-    readme.includes(`This checkout is ${manifest.version}, unreleased.`)
+    readme.includes(
+      `This checkout is the unpublished **${manifest.version} source candidate**.`
+    )
   );
   assert.ok(readme.includes(`octoload-${manifest.version}.tgz`));
 }

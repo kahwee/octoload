@@ -1,6 +1,6 @@
 {
   "name": "octoload",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "description": "Browser-to-S3/R2 image uploads with PostgreSQL or SQLite metadata and framework scaffolds",
   "main": "dist/index.js",

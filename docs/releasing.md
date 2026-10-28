@@ -2,16 +2,12 @@
 
 ## Current candidate
 
-The 0.3.0 candidate adds upload observability, cancellation, configurable
-timeouts, and explicit recovery. It includes browser E2E coverage through
-Next.js, test sessions, SQLite, and real R2. See the [changelog](../CHANGELOG.md)
-and [upgrade notes](observability.md#upgrading-from-02x).
-
-npm `latest` remains 0.2.1 until registry publication is verified. A GitHub
-release candidate and attached tarball do not imply npm publication. Keep the
-changelog marked unreleased and document tarball installation while npm is
-pending. Previous npm releases are [0.2.1](https://github.com/kahwee/octoload/releases/tag/v0.2.1)
-and [0.2.0](https://github.com/kahwee/octoload/releases/tag/v0.2.0).
+The 0.3.1 source candidate includes changes since npm 0.2.1. See the
+[changelog](../CHANGELOG.md) and [upgrade notes](observability.md#upgrading-from-021).
+It has not been published to npm or GitHub. npm `latest` remains 0.2.1.
+The [0.3.0 GitHub prerelease](https://github.com/kahwee/octoload/releases/tag/v0.3.0)
+and its tarball are historical artifacts from commit `8065d4656454e11b79c6285d8e6c19fde78a297b`;
+they do not represent this candidate. Do not replace that tag or its assets.
 
 ## Prepare and audit
 
@@ -34,10 +30,10 @@ and [0.2.0](https://github.com/kahwee/octoload/releases/tag/v0.2.0).
 6. Pack and review the exact artifact:
 
    ```sh
-   pnpm pack --out /tmp/octoload-0.3.0.tgz
-   tar -tzf /tmp/octoload-0.3.0.tgz
-   sha512sum /tmp/octoload-0.3.0.tgz
-   pnpm publish /tmp/octoload-0.3.0.tgz --dry-run --ignore-scripts --access public --tag next
+   pnpm pack --out /tmp/octoload-0.3.1.tgz
+   tar -tzf /tmp/octoload-0.3.1.tgz
+   sha512sum /tmp/octoload-0.3.1.tgz
+   pnpm publish /tmp/octoload-0.3.1.tgz --dry-run --ignore-scripts --access public --tag next
    ```
 
    `test:package` checks packed exports, declarations, CLI version, scaffolds,

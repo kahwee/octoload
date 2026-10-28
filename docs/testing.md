@@ -133,7 +133,7 @@ errors, both framework adapters and rejected route parameters. Unexpected errors
 return a generic 500; client validation returns 400; private missing/denied reads
 share a 404. Responses containing signed URLs or private metadata use `no-store`.
 The 0.2.1 regressions check that XHR abort and timeout events reject the upload
-and skip finalization. Version 0.3.0 adds an AbortSignal cancellation API and
+and skip finalization. The 0.3.0 prerelease added an AbortSignal cancellation API and
 configurable timeout durations; see [observability](observability.md).
 
 Disk reopen examples verify persistence for both databases. The packed-package

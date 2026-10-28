@@ -4,19 +4,19 @@ Upload images straight from your browser to **Amazon S3 or Cloudflare R2**.
 Octoload connects a lightweight browser client to your app’s authentication,
 PostgreSQL or SQLite metadata, and framework handlers. You own the storage and the data.
 
-**0.3.0** adds upload observability, cancellation, timeouts, and recovery after lost responses.
-This checkout is 0.3.0, unreleased. npm `latest` is still 0.2.1; the
-[GitHub release candidate](https://github.com/kahwee/octoload/releases/tag/v0.3.0)
-provides the reviewed `octoload-0.3.0.tgz` package.
+This checkout is the unpublished **0.3.1 source candidate**. npm `latest` is
+0.2.1. The historical [0.3.0 GitHub prerelease](https://github.com/kahwee/octoload/releases/tag/v0.3.0)
+and its tarball represent an earlier commit, not this candidate. See the
+[upgrade notes](https://github.com/kahwee/octoload/blob/main/docs/observability.md#upgrading-from-021) before upgrading from npm 0.2.1.
 
 ## Install
 
 Use Node.js 24+. Bun is optional. Choose PostgreSQL or SQLite for metadata.
 
-To try the release candidate in an existing Next.js app with PostgreSQL, Drizzle, and Better Auth:
+To try a locally built 0.3.1 candidate tarball in an existing Next.js app with PostgreSQL, Drizzle, and Better Auth:
 
 ```bash
-pnpm add https://github.com/kahwee/octoload/releases/download/v0.3.0/octoload-0.3.0.tgz drizzle-orm pg
+pnpm add /path/to/octoload-0.3.1.tgz drizzle-orm pg
 pnpm add -D drizzle-kit @types/pg
 pnpm exec octoload init --framework nextjs --adapter s3 --auth better-auth
 pnpm exec octoload generate --output src/db/upload-schema.ts

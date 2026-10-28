@@ -1,8 +1,9 @@
 # Changelog
 
-## 0.3.0 — Unreleased
+## 0.3.1 — Unreleased source candidate
 
-GitHub release candidate; npm publication is pending. npm `latest` remains 0.2.1.
+Changes below describe the current candidate relative to npm 0.2.1. It has not
+been published. npm `latest` remains 0.2.1.
 
 - Refresh development and CI Node pins to 24.22.1/26.12.1 and pnpm to 12.15.0, AWS S3 client/presigner to 3.1157.0, Zod to 4.6.7, Next.js to 16.4.3, React to 19.3.1, React Router to 8.5.0, and compatible development tooling; pin CI actions to release commits.
 
@@ -16,8 +17,14 @@ GitHub release candidate; npm publication is pending. npm `latest` remains 0.2.1
 - Add Chromium E2E tests through Next.js, cookie-backed test sessions, SQLite, and local HTTP storage or a real private R2 bucket; cover lost responses, session expiry, cancellation, timeout, ownership, and concurrent uploads.
 - Fix Chromium empty 204 response handling and rejected async progress callbacks in batched uploads.
 - Reject overflowing timer values, consume recovery handles after use, and observe early framework parameter failures.
-- Refresh setup, observability, testing, and release guides. See the [0.3.0 upgrade notes](docs/observability.md#upgrading-from-02x).
+- Refresh setup, observability, testing, and release guides. See the [upgrade notes](docs/observability.md#upgrading-from-021).
 - Update the AWS S3 client and request presigner to 3.1143.0 and the Next.js development dependency to 16.4.0; refresh compatible transitive dependencies.
+
+## 0.3.0 — 2026-10-03 (GitHub prerelease)
+
+The [historical prerelease](https://github.com/kahwee/octoload/releases/tag/v0.3.0)
+added upload observability, cancellation, timeouts, recovery, and browser tests.
+Its tag and tarball identify an earlier commit; it was not published to npm.
 
 ## 0.2.1 — 2026-10-01
 

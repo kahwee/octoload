@@ -148,12 +148,24 @@ standard session setup. Cross-origin APIs require application-managed cookie/COR
 configuration, including allowing the upload correlation header and exposing the
 response correlation/error headers. These headers are never sent to the bucket.
 
-## Upgrading from 0.2.x
+## Upgrading from 0.2.1
 
 Upgrade the client and server package together to use recovery and correlation
 headers. Existing databases should apply the new lookup indexes as described in
 [database upgrades](databases.md#tracked-migrations-and-index-upgrades).
 
+- Public `getImage` reads by guests or other users now redact owner IDs,
+  organization and entity associations, filenames, storage keys, and checksums.
+  `ImageReadRecord` makes those owner-only fields optional; owners still receive
+  the full record. Update consumers that assumed public reads returned them.
+- Server lifecycle hooks that 0.2.1 declared but did not invoke are now awaited
+  and enforced. `beforePresign` can deny or transform validated metadata;
+  `onDelete` can veto deletion; and `afterFinalize` runs after the ready transition,
+  so a failure cannot roll back that transition. Remove `onProcessVariant`:
+  configuring it now throws because variant processing is unsupported. See
+  [server lifecycle hooks](integrations.md#server-lifecycle-hooks).
+- React Router image deletion accepts DELETE only; other methods return 405
+  before authentication or mutation. Update clients that used another method.
 - API requests now time out after 30 seconds, and single PUT after 120 seconds.
   Increase `requestTimeoutMs` or `uploadTimeoutMs` for slower environments.
 - SHA-256 metadata is now opt-in via `calculateChecksum: true`. Default uploads

@@ -1,12 +1,12 @@
 # Next.js setup with Better Auth
 
-This guide targets the Octoload 0.3.0 GitHub release candidate. npm publication
-is pending; use the tarball below. Use Node.js 24+; Bun is optional.
+This guide targets the unpublished 0.3.1 source candidate. Build and review a
+local tarball before following it; npm `latest` remains 0.2.1. Use Node.js 24+; Bun is optional.
 
 You need Node.js 24+, an existing Next.js app with PostgreSQL, a Drizzle database connection, a Better Auth instance exported from `src/lib/auth.ts`, and an S3 bucket. For Cloudflare R2, use the [R2 variant](integrations.md#cloudflare-r2-variant).
 
 ```bash
-pnpm add https://github.com/kahwee/octoload/releases/download/v0.3.0/octoload-0.3.0.tgz drizzle-orm pg
+pnpm add /path/to/octoload-0.3.1.tgz drizzle-orm pg
 pnpm add -D drizzle-kit @types/pg
 pnpm exec octoload init --framework nextjs --adapter s3 --auth better-auth
 pnpm exec octoload generate --output src/db/upload-schema.ts
