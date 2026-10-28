@@ -4,7 +4,7 @@
 
 GitHub release candidate; npm publication is pending. npm `latest` remains 0.2.1.
 
-- Refresh pnpm to 12.15.0, AWS S3 client/presigner to 3.1157.0, Zod to 4.6.7, Next.js to 16.4.3, React to 19.3.1, React Router to 8.5.0, and compatible development tooling; pin CI actions to release commits.
+- Refresh development and CI Node pins to 24.22.1/26.12.1 and pnpm to 12.15.0, AWS S3 client/presigner to 3.1157.0, Zod to 4.6.7, Next.js to 16.4.3, React to 19.3.1, React Router to 8.5.0, and compatible development tooling; pin CI actions to release commits.
 
 - Previously refreshed the AWS S3 client/presigner to 3.1149.0, Drizzle ORM to 0.45.4, Zod to 4.6.6, Playwright to 1.64.0, and Node.js development types to 26.6.5.
 

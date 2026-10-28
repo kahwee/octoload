@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
-        node-version: [24, 26]
+        node-version: ["24.22.1", "26.12.1"]
 
     steps:
       - name: Checkout code
@@ -81,15 +81,15 @@ jobs:
           node examples/persistent-database.mjs pglite
 
       - name: Install browser for E2E
-        if: matrix.node-version == 24
+        if: matrix.node-version == '24.22.1'
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Browser lifecycle and failure recovery (local storage fixture)
-        if: matrix.node-version == 24
+        if: matrix.node-version == '24.22.1'
         run: pnpm run test:e2e
 
       - name: Upload coverage reports to Codecov
-        if: matrix.node-version == 24
+        if: matrix.node-version == '24.22.1'
         continue-on-error: true
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
