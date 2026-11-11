@@ -227,7 +227,10 @@ test('active publisher isolates OIDC from builds and verifies the archive', () =
   assert.match(publish, /actions\/download-artifact@/);
   assert.match(publish, /sha256sum -c package\.tgz\.sha256/);
   assert.match(publish, /npm publish .*--ignore-scripts/);
-  assert.doesNotMatch(publish, /actions\/checkout|pnpm|npm install|npm ci|node scripts/);
+  assert.doesNotMatch(
+    publish,
+    /actions\/checkout|pnpm|npm install|npm ci|node scripts/
+  );
   assert.doesNotMatch(verify, /id-token: write|npm publish/);
   assert.match(verify, /--verify-archive/);
 });
