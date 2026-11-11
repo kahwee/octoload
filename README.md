@@ -84,7 +84,7 @@ stored size and content type before marking the image ready. Private reads use
 signed GET URLs; private reads and all deletes enforce ownership through your app’s session.
 Public reads omit internal metadata unless the reader is the image owner.
 Deletion erases current object bytes but retains an empty replay-blocking tombstone;
-see [retired keys and metadata request limits](docs/integrations.md#retired-upload-keys-and-request-limits).
+see [retired keys and metadata request limits](https://github.com/kahwee/octoload/blob/main/docs/integrations.md#retired-upload-keys-and-request-limits).
 
 `uploadMultiple(files)` uploads in batches of three. If a batch fails,
 `UploadBatchError.outcomes` preserves successful results, individual errors, and
