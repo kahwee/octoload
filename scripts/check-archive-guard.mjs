@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   archiveIntegrity,
@@ -204,39 +204,33 @@ test('local tarball integrity gates existing-version upload', async () => {
   }
 });
 
-test('inactive proposal preserves trigger, permissions and upload gate', () => {
+test('active publisher isolates OIDC from builds and verifies the archive', () => {
   const workflow = readFileSync(
-    new URL('../.github/release-proposals/publish.yml', import.meta.url),
+    new URL('../.github/workflows/publish.yml', import.meta.url),
     'utf8'
   );
+  const build = workflow.split('\n  build:')[1].split('\n  publish:')[0];
+  const publish = workflow.split('\n  publish:')[1].split('\n  verify:')[0];
+  const verify = workflow.split('\n  verify:')[1];
   assert.match(workflow, /on:\s*\n  release:\s*\n    types: \[published\]/);
-  assert.match(workflow, /if: true/);
-  assert.match(
-    workflow,
-    /if \[ "\$PRERELEASE" = true \]; then dist_tag=next; fi/
-  );
-  assert.match(
-    workflow,
-    /group: npm-release-octoload\s*\n  queue: max\s*\n  cancel-in-progress: false/
-  );
-  assert.match(workflow, /permissions:\s*\n  contents: read/);
-  assert.match(
-    workflow,
-    /permissions:\s*\n      contents: read\s*\n      actions: read\s*\n      id-token: write/
-  );
+  assert.match(workflow, /group: npm-release-octoload/);
+  assert.match(workflow, /cancel-in-progress: false/);
   assert.equal((workflow.match(/id-token: write/g) || []).length, 1);
   assert.equal((workflow.match(/npm publish /g) || []).length, 1);
-  assert.match(workflow, /if: steps.metadata.outputs.should_publish == 'true'/);
-  assert.match(workflow, /--archive-registry/);
-  assert.match(workflow, /--verify-archive/);
+  assert.doesNotMatch(workflow, /NPM_TOKEN|NODE_AUTH_TOKEN/);
+  assert.doesNotMatch(build, /id-token: write/);
+  assert.match(build, /--archive-registry/);
+  assert.match(build, /actions\/upload-artifact@/);
+  assert.match(publish, /needs: build/);
+  assert.match(publish, /if: needs\.build\.outputs\.should_publish == 'true'/);
+  assert.match(publish, /id-token: write/);
+  assert.match(publish, /actions\/download-artifact@/);
+  assert.match(publish, /sha256sum -c package\.tgz\.sha256/);
+  assert.match(publish, /npm publish .*--ignore-scripts/);
+  assert.doesNotMatch(publish, /actions\/checkout|pnpm|npm install|npm ci|node scripts/);
+  assert.doesNotMatch(verify, /id-token: write|npm publish/);
+  assert.match(verify, /--verify-archive/);
 });
-test('no active publisher exists', () => {
-  assert.equal(
-    existsSync(new URL('../.github/workflows/publish.yml', import.meta.url)),
-    false
-  );
-});
-
 test('prerelease release readback verifies next and leaves newer latest untouched', async () => {
   const versions = { '2.10.0': entry('2.10.0'), '3.0.0': entry('3.0.0') };
   const payload = data('3.0.0', versions);
