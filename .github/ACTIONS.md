@@ -8,6 +8,11 @@ This guide describes the checked-in workflows. Follow each linked YAML file for 
 | -------------------------- | ---------------------- | ------ |
 | [ci.yml](workflows/ci.yml) | `push`, `pull_request` | `test` |
 
+The [publish.yml](workflows/publish.yml) workflow runs on published GitHub releases.
+Its build job validates and packs without OIDC; a fresh publish job receives only
+the checked archive and publishing permission. A read-only verify job checks npm.
+See [Actions publishing](../docs/actions-publishing.md) for trust and release gates.
+
 ## Parallel steps
 
 Independent checks use GitHub Actions [native parallel steps](https://github.blog/changelog/2026-06-25-actions-steps-can-now-be-run-in-parallel/). The following groups run concurrently within a job:
