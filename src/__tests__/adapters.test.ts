@@ -49,7 +49,7 @@ describe('Framework Adapters', () => {
       getPublicUrl: vi.fn(),
       getPrivateUrl: vi.fn(),
       headObject: vi.fn(),
-      deleteObject: vi.fn(),
+      retireObject: vi.fn(),
     },
     db: {
       insert: vi.fn().mockReturnThis(),

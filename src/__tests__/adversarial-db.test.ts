@@ -30,8 +30,15 @@ const config = {
 
 function storageFixture(core: OctoloadCore) {
   const objects = new Set<string>();
+  const retired = new Set<string>();
   const storage = {
     objects,
+    retired,
+    put: (key: string) => {
+      if (objects.has(key) || retired.has(key))
+        throw new Error('PreconditionFailed');
+      objects.add(key);
+    },
     getPresignedPutUrl: vi.fn(async () => ({
       url: 'https://example.invalid/upload',
     })),
@@ -41,7 +48,8 @@ function storageFixture(core: OctoloadCore) {
       return { ContentLength: 68, ContentType: 'image/png' };
     }),
     getPrivateUrl: vi.fn(async () => 'https://example.invalid/private'),
-    deleteObject: vi.fn(async (key: string) => {
+    retireObject: vi.fn(async (key: string) => {
+      retired.add(key);
       objects.delete(key);
     }),
   };
@@ -173,6 +181,18 @@ for (const dialect of ['postgres', 'sqlite'] as const) {
       expect(await fixture.rows()).toHaveLength(1);
     });
 
+    it.each(['processing', 'ready'] as const)(
+      'blocks a signed PUT after deletion of a %s upload',
+      async (status) => {
+        const row = status === 'ready' ? await ready() : await processing();
+        await fixture.core.deleteImage(row.id, 'owner');
+        expect(storage.retired.has(row.storageKey)).toBe(true);
+        expect(() => storage.put(row.storageKey)).toThrow('PreconditionFailed');
+        expect(storage.objects.has(row.storageKey)).toBe(false);
+        expect(await fixture.rows()).toEqual([]);
+      }
+    );
+
     it('hides a ready row after storage deletion succeeds but SQL deletion fails, then permits retry', async () => {
       const row = await ready();
       await fixture.execute(
@@ -205,7 +225,7 @@ for (const dialect of ['postgres', 'sqlite'] as const) {
 
     it('hides a row during a storage outage and permits the owner to retry deletion', async () => {
       const row = await ready();
-      storage.deleteObject.mockRejectedValueOnce(
+      storage.retireObject.mockRejectedValueOnce(
         new Error('injected storage outage')
       );
       await expect(fixture.core.deleteImage(row.id, 'owner')).rejects.toThrow(
@@ -232,7 +252,7 @@ for (const dialect of ['postgres', 'sqlite'] as const) {
         await releaseHead.promise;
         return { ContentLength: 68, ContentType: 'image/png' };
       });
-      storage.deleteObject.mockImplementationOnce(async (key) => {
+      storage.retireObject.mockImplementationOnce(async (key) => {
         storage.objects.delete(key);
         enteredDelete.resolve();
         await releaseDelete.promise;
@@ -300,7 +320,7 @@ for (const dialect of ['postgres', 'sqlite'] as const) {
         await expect(
           fixture.core.deleteImage(row.id, 'owner')
         ).rejects.toThrow();
-        expect(storage.deleteObject).not.toHaveBeenCalled();
+        expect(storage.retireObject).not.toHaveBeenCalled();
         expect(storage.objects.has(row.storageKey)).toBe(true);
         expect((await fixture.rows())[0].status).toBe('ready');
       } finally {

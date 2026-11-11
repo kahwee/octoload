@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Test release metadata guard
-        run: node --test scripts/check-release-guard.mjs
+        run: node --test scripts/check-release-guard.mjs scripts/check-ci-secrets.mjs
 
       - name: Reject npm lockfiles
         run: test ! -e package-lock.json
@@ -89,7 +89,8 @@ jobs:
         run: pnpm run test:e2e
 
       - name: Upload coverage reports to Codecov
-        if: matrix.node-version == '24.22.1'
+        # PR code must never run in a job that receives this upload secret.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.node-version == '24.22.1'
         continue-on-error: true
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:

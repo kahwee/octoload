@@ -215,6 +215,23 @@ export class S3StorageAdapter {
     return await getSignedUrl(this.client, command, { expiresIn });
   }
 
+  /** Erase bytes without reopening the key to a still-valid create-only PUT. */
+  async retireObject(key: string): Promise<void> {
+    // A delete marker is not enough: S3 treats it as an absent current object.
+    // Keep an empty current object permanently, including for pending uploads.
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: new Uint8Array(0),
+        ContentLength: 0,
+        ContentType: 'application/octet-stream',
+        CacheControl: 'no-store',
+        Metadata: { 'octoload-retired': 'true' },
+      })
+    );
+  }
+
   async deleteObject(key: string): Promise<void> {
     const command = new DeleteObjectCommand({
       Bucket: this.bucket,

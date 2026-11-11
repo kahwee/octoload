@@ -5,7 +5,7 @@ import { uploadSchema } from '../templates/upload-schema.js';
 import type { ImageRecord } from '../types/index.js';
 
 const storage = vi.hoisted(() => ({
-  deleteObject: vi.fn(async () => undefined),
+  retireObject: vi.fn(async () => undefined),
   headObject: vi.fn(async () => ({
     ContentLength: 10,
     ContentType: 'image/jpeg',
@@ -97,7 +97,7 @@ describe.each(['s3', 'r2'] as const)(
         skipped: 0,
         errors: [],
       });
-      expect(storage.deleteObject).toHaveBeenCalledWith('uploads/photo.jpg');
+      expect(storage.retireObject).toHaveBeenCalledWith('uploads/photo.jpg');
       expect(remove).toHaveBeenCalledOnce();
       expect(rows).toHaveLength(0);
       expect(vi.mocked(S3StorageAdapter)).toHaveBeenCalledWith(
@@ -107,7 +107,7 @@ describe.each(['s3', 'r2'] as const)(
 
     it('keeps a failed row for retry when storage deletion fails', async () => {
       const { core, rows, remove } = makeCore(provider, image());
-      storage.deleteObject.mockRejectedValueOnce(
+      storage.retireObject.mockRejectedValueOnce(
         new Error('storage unavailable')
       );
       expect(await core.cleanupAbandonedUploads()).toMatchObject({
@@ -130,7 +130,7 @@ describe.each(['s3', 'r2'] as const)(
         cleaned: 0,
         skipped: 1,
       });
-      expect(storage.deleteObject).not.toHaveBeenCalled();
+      expect(storage.retireObject).not.toHaveBeenCalled();
       expect(remove).not.toHaveBeenCalled();
     });
 

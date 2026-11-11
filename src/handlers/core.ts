@@ -366,8 +366,8 @@ export class OctoloadCore<
           }
         }
 
-        // DeleteObject is safe to retry if the object was never uploaded.
-        await this.storage.deleteObject(image.storageKey);
+        // Retire even absent keys: in-flight signed PUTs must not recreate them.
+        await this.storage.retireObject(image.storageKey);
         await this.db
           .delete(this.getImagesTable())
           .where(
@@ -492,8 +492,8 @@ export class OctoloadCore<
       throw new Error('Image not found');
     }
 
-    // Delete from storage
-    await this.storage.deleteObject(image.storageKey);
+    // Erase bytes while retaining a replay-blocking empty object.
+    await this.storage.retireObject(image.storageKey);
 
     // Delete from database
     await this.db

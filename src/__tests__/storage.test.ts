@@ -40,6 +40,23 @@ describe('S3StorageAdapter', () => {
     });
   });
 
+  it('retires a key with an empty current object, never a delete marker', async () => {
+    const { PutObjectCommand, DeleteObjectCommand } = await import(
+      '@aws-sdk/client-s3'
+    );
+    await adapter.retireObject('retired.jpg');
+    expect(PutObjectCommand).toHaveBeenCalledWith({
+      Bucket: 'test-bucket',
+      Key: 'retired.jpg',
+      Body: new Uint8Array(0),
+      ContentLength: 0,
+      ContentType: 'application/octet-stream',
+      CacheControl: 'no-store',
+      Metadata: { 'octoload-retired': 'true' },
+    });
+    expect(DeleteObjectCommand).not.toHaveBeenCalled();
+  });
+
   describe('getPresignedPutUrl', () => {
     it('should generate presigned URL for single upload', async () => {
       const result = await adapter.getPresignedPutUrl(

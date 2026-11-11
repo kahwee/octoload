@@ -44,11 +44,38 @@ export type { HandlerEvent } from './observability.js';
 
 class InvalidRequestError extends Error {}
 
+// Metadata only: uploaded file bytes go directly to storage, never these routes.
+const MAX_BODY_BYTES = 16 * 1024;
+class RequestTooLargeError extends Error {}
+
 async function parseBody(request: Request): Promise<unknown> {
+  const length = request.headers.get('content-length');
+  if (length && /^\d+$/.test(length) && Number(length) > MAX_BODY_BYTES) {
+    void request.body?.cancel().catch(() => {});
+    throw new RequestTooLargeError();
+  }
+  if (!request.body) throw new InvalidRequestError();
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let bytes = 0;
+  let text = '';
   try {
-    return await request.json();
-  } catch {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > MAX_BODY_BYTES) throw new RequestTooLargeError();
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    return JSON.parse(text);
+  } catch (error) {
+    // Do not await cancellation: a hostile producer may never settle it.
+    void reader.cancel().catch(() => {});
+    if (error instanceof RequestTooLargeError) throw error;
     throw new InvalidRequestError('Invalid request');
+  } finally {
+    reader.releaseLock();
   }
 }
 
@@ -109,7 +136,13 @@ const publicErrors = new Set([
 function errorResponse(error: unknown): Response {
   let status = 500;
   let message = 'Internal server error';
-  if (error instanceof DrizzleError || error instanceof DrizzleQueryError) {
+  if (error instanceof RequestTooLargeError) {
+    status = 413;
+    message = 'Request body too large';
+  } else if (
+    error instanceof DrizzleError ||
+    error instanceof DrizzleQueryError
+  ) {
     message = 'Database operation failed';
   } else if (
     error instanceof ZodError ||
