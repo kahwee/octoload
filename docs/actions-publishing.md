@@ -52,4 +52,4 @@ Exhaustion fails the job.
 
 The workflow accepts a published GitHub release marked as a prerelease, but still
 requires a stable version tag; such a release uses and verifies `next`, while other
-releases use and verify `latest`. 
+releases use and verify `latest`.
