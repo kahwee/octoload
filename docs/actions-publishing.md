@@ -8,18 +8,21 @@ Run `node --test scripts/check-release-guard.mjs` and
 `node scripts/release-check.mjs v<version>` without publishing.
 `--registry` adds a read-only check of the exact public npm version.
 
-## Approval proposal
+## Isolated release publishing
 
-The complete workflow is in [publish.yml](../.github/release-proposals/publish.yml).
-It is outside `.github/workflows` and cannot run. After explicit approval, move it
-to `.github/workflows/publish.yml` (replacing an existing publisher where present).
-It uses published GitHub releases, checks the exact tagged source against successful
-CI, installs the frozen lockfile, checks/builds, packs and publishes the checked
-tarball. It does not create versions, tags or GitHub releases. Stable releases use
-`latest`; Octoload prereleases use `next`, preserving its candidate policy.
+The active workflow is [publish.yml](../.github/workflows/publish.yml).
+Published GitHub releases trigger three jobs: build, publish, and verify.
+The build job requires successful CI on the exact tagged main-branch source,
+installs the frozen lockfile, checks and builds, and uploads a checked archive.
+It has read-only repository permissions and no OIDC permission.
 
-Approval must cover the workflow job's `contents: read`, `actions: read`, and
-`id-token: write`, plus this npm trusted-publisher binding:
+The fresh publish job downloads the archive, checks its SHA-256 digest, and runs
+npm with lifecycle scripts disabled. Only this job has id-token write permission;
+it performs no checkout, dependency installation, or repository-script execution.
+The read-only verify job checks registry identity, archive integrity, and dist-tag.
+The workflow does not create versions, tags, or GitHub releases.
+
+The approved npm trusted-publisher binding is:
 
 - npm package: `octoload`
 - GitHub owner: `kahwee`
@@ -30,15 +33,12 @@ Approval must cover the workflow job's `contents: read`, `actions: read`, and
 
 Use GitHub-hosted runners and npm >=11.5.1; no npm secret is needed. Configure and
 read back the binding in the package owner's npm settings after approval. Existing
-secret presence and a local login do not prove CI publish access. Do not revoke
-existing credentials or change package security settings as part of this proposal.
-See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
+secret presence and a local login do not prove CI publish access. See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
 
-No publishing action or registry trust was enabled by this change. Run the full
-existing CI after review. Authentication remains untested until a separately
-authorized real release; a package dry run does not validate OIDC exchange.
+Run the full existing CI before releasing. Authentication is validated only by a
+successful real publication; a package dry run does not validate OIDC exchange.
 
-The inactive proposal serializes releases with `queue: max`: GitHub holds up to
+The workflow serializes releases with `queue: max`: GitHub holds up to
 100 pending runs and cancels additional arrivals when full. Waiting order does
 not guarantee version order. The archive-aware preflight rejects a new version
 that would downgrade `latest`, and skips an existing version only if its SHA-512
@@ -50,6 +50,6 @@ package/version or a missing or older selected tag is retried; other HTTP errors
 malformed metadata, and identity or integrity mismatches fail immediately.
 Exhaustion fails the job.
 
-The proposal accepts a published GitHub release marked as a prerelease, but still
+The workflow accepts a published GitHub release marked as a prerelease, but still
 requires a stable version tag; such a release uses and verifies `next`, while other
-releases use and verify `latest`. This retains the existing proposal policy.
+releases use and verify `latest`. 
