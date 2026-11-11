@@ -44,7 +44,7 @@ using the package adapter gain this guard when the package is upgraded.
 
 ## Scheduled cleanup
 
-Presigned PUT URLs expire after one hour. Run cleanup from a trusted scheduled server job to remove old `processing` or `failed` rows and their S3/R2 objects:
+Presigned PUT URLs expire after one hour. Run cleanup from a trusted scheduled server job to remove old `processing` or `failed` rows and erase their S3/R2 object contents:
 
 ```ts
 import { OctoloadCore } from 'octoload';
@@ -156,3 +156,26 @@ when upgrading or changing provider configuration.
 
 Upload event hooks, structured failures, timeouts, and recovery are covered in
 [observability and recovery](observability.md).
+
+## Retired upload keys and request limits
+
+Presign and finalize accept at most 16 KiB of UTF-8 JSON metadata. The handlers
+count streamed bytes even without a trustworthy Content-Length and return 413
+before parsing oversized bodies. File bytes still upload directly to storage.
+Configure request timeouts and rate limits at the server/proxy as well.
+
+Owner deletion and abandoned-upload cleanup replace each object with an empty,
+non-cacheable tombstone before removing the database row. They also create a
+tombstone when the upload has not arrived yet. This permanently occupies the key,
+so the signed `If-None-Match: *` PUT cannot resurrect deleted content, including
+an upload already in flight. Retrying retirement is safe after a storage/DB error.
+Do not delete these tombstones with bucket lifecycle rules or external cleanup:
+a delete marker in a versioned S3 bucket also reopens a key to conditional PUTs.
+The low-level `deleteObject` helper remains a physical deletion primitive and is
+not used by the core lifecycle.
+
+Tombstones retain no uploaded file bytes, but incur object metadata/storage costs.
+For versioned buckets, configure noncurrent-version retention separately; replacing
+an object does not erase its older versions. Already downloaded bytes or public
+CDN/browser caches cannot be revoked by deleting an origin object. Configure cache
+retention and purge public caches where immediate revocation is required.

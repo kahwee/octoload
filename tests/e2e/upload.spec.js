@@ -280,3 +280,48 @@ test.afterEach(async ({ page, request }, testInfo) => {
   }
   expect(await rows(request)).toEqual([]);
 });
+
+for (const uploaded of [false, true]) {
+  test(`deleted ${uploaded ? 'ready' : 'pending'} uploads reject original PUT replay`, async ({
+    request,
+  }) => {
+    const before = new Set((await rows(request)).map((row) => row.id));
+    const response = await request.post('/api/uploads/presign', {
+      data: {
+        filename: pixel.name,
+        contentType: pixel.mimeType,
+        byteSize: pixel.buffer.length,
+      },
+    });
+    expect(response.status()).toBe(200);
+    const signed = await response.json();
+    if (uploaded) {
+      expect(
+        (
+          await request.put(signed.uploadUrl, {
+            headers: signed.headers,
+            data: pixel.buffer,
+          })
+        ).ok()
+      ).toBe(true);
+      expect(
+        (
+          await request.post('/api/uploads/finalize', {
+            data: { storageKey: signed.storageKey },
+          })
+        ).ok()
+      ).toBe(true);
+    }
+    const row = (await rows(request)).find(
+      (candidate) => !before.has(candidate.id)
+    );
+    expect(row).toBeTruthy();
+    expect((await request.delete(`/api/images/${row.id}`)).status()).toBe(204);
+    const replay = await request.put(signed.uploadUrl, {
+      headers: signed.headers,
+      data: pixel.buffer,
+    });
+    expect(replay.status()).toBe(412);
+    expect((await request.get(`/api/images/${row.id}`)).status()).toBe(404);
+  });
+}

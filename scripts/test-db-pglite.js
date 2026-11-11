@@ -60,7 +60,7 @@ test('adversarial core flows against a disposable PostgreSQL engine', {
           throw Object.assign(new Error('missing'), { name: 'NotFound' });
         return objects.get(key);
       },
-      deleteObject: async (key) => {
+      retireObject: async (key) => {
         objects.delete(key);
       },
     };
@@ -300,8 +300,8 @@ test('adversarial core flows against a disposable PostgreSQL engine', {
           .update(schema.images)
           .set({ createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000) })
           .where(eq(schema.images.id, row.id));
-        const originalDelete = core.storage.deleteObject;
-        core.storage.deleteObject = async (key) => {
+        const originalDelete = core.storage.retireObject;
+        core.storage.retireObject = async (key) => {
           if (key === row.storageKey)
             throw new Error('deliberate storage outage');
           return originalDelete(key);
@@ -321,7 +321,7 @@ test('adversarial core flows against a disposable PostgreSQL engine', {
             /no longer processing/
           );
         } finally {
-          core.storage.deleteObject = originalDelete;
+          core.storage.retireObject = originalDelete;
         }
         const retry = await core.cleanupAbandonedUploads();
         assert.equal(retry.errors.length, 0);

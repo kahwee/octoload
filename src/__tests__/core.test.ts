@@ -19,7 +19,7 @@ vi.mock('../storage/s3-adapter.js', () => ({
         ContentLength: 10,
         ContentType: 'image/jpeg',
       }),
-      deleteObject: vi.fn(),
+      retireObject: vi.fn(),
     };
   }),
 }));

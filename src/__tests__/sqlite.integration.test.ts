@@ -23,7 +23,7 @@ vi.mock('../storage/s3-adapter.js', () => ({
         .mockResolvedValue({ ContentLength: 68, ContentType: 'image/png' }),
       getPrivateUrl: vi.fn().mockResolvedValue('https://storage.test/private'),
       getPublicUrl: vi.fn().mockReturnValue('https://storage.test/public'),
-      deleteObject: vi.fn().mockResolvedValue(undefined),
+      retireObject: vi.fn().mockResolvedValue(undefined),
     };
   }),
 }));
@@ -156,11 +156,11 @@ describe('SQLite metadata with real libSQL and generated migrations', () => {
     );
     expect(await db.select().from(schema.images)).toHaveLength(1);
     const storage = vi.mocked(S3StorageAdapter).mock.results.at(-1)?.value;
-    expect(storage.deleteObject).not.toHaveBeenCalled();
+    expect(storage.retireObject).not.toHaveBeenCalled();
     onDelete.mockResolvedValueOnce(undefined);
     await core.deleteImage(image.id, 'owner');
     expect(await db.select().from(schema.images)).toEqual([]);
-    expect(storage.deleteObject).toHaveBeenCalledOnce();
+    expect(storage.retireObject).toHaveBeenCalledOnce();
   });
 
   it('rejects unsupported variant hooks instead of silently ignoring them', () => {
@@ -274,7 +274,7 @@ describe('SQLite metadata with real libSQL and generated migrations', () => {
       .update(schema.images)
       .set({ createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000) });
     const storage = vi.mocked(S3StorageAdapter).mock.results.at(-1)?.value;
-    storage.deleteObject.mockRejectedValueOnce(new Error('storage offline'));
+    storage.retireObject.mockRejectedValueOnce(new Error('storage offline'));
     const failed = await core.cleanupAbandonedUploads();
     expect(failed.cleaned).toBe(0);
     expect(failed.errors).toEqual([

@@ -112,6 +112,20 @@ try {
       }
       const key = new URL(req.url, 'http://fixture').pathname;
       if (req.method === 'PUT') {
+        // Server-side retirement uses Authorization rather than a presigned URL.
+        // This local-only fixture models S3 semantics, not signature verification.
+        if (
+          req.headers.authorization?.startsWith('AWS4-HMAC-SHA256 ') &&
+          req.headers['x-amz-meta-octoload-retired'] === 'true' &&
+          req.headers['content-length'] === '0'
+        ) {
+          objects.set(key, {
+            body: Buffer.alloc(0),
+            type: 'application/octet-stream',
+          });
+          res.writeHead(200);
+          return res.end();
+        }
         if (req.headers['if-none-match'] !== '*') {
           res.writeHead(403);
           return res.end();

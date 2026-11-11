@@ -34,7 +34,7 @@ const mockStorageAdapter = {
   getPublicUrl: vi.fn(),
   getPrivateUrl: vi.fn(),
   headObject: vi.fn(),
-  deleteObject: vi.fn(),
+  retireObject: vi.fn(),
 };
 
 // Mock database
@@ -824,4 +824,72 @@ describe('Handlers', () => {
       expect(data.error).toBe('Internal server error');
     });
   });
+});
+
+describe('bounded metadata bodies', () => {
+  const options: HandlerOptions = {
+    config: {
+      adapter: 's3',
+      bucket: 'test',
+      region: 'us-east-1',
+      credentials: { accessKeyId: 'test', secretAccessKey: 'test' },
+    },
+    db: mockDb,
+    schema: mockSchema,
+    getUser: async () => ({ id: 'owner' }),
+  };
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCore.presign.mockResolvedValue({});
+    mockCore.finalize.mockResolvedValue({});
+  });
+  for (const factory of [createPresignHandler, createFinalizeHandler]) {
+    it(`${factory.name} rejects a declared oversized body before reading`, async () => {
+      const request = new Request('https://example.test', {
+        method: 'POST',
+        body: '{}',
+        headers: { 'Content-Length': '16385' },
+      });
+      expect((await factory(options)(request)).status).toBe(413);
+      expect(mockCore.presign).not.toHaveBeenCalled();
+      expect(mockCore.finalize).not.toHaveBeenCalled();
+    });
+    it.each([undefined, '1'])(
+      `${factory.name} counts streamed bytes despite content-length %s`,
+      async (length) => {
+        const cancel = vi.fn();
+        const request = new Request('https://example.test', {
+          method: 'POST',
+          body: new ReadableStream({
+            pull(controller) {
+              controller.enqueue(new Uint8Array(8193));
+            },
+            cancel,
+          }),
+          ...(length ? { headers: { 'Content-Length': length } } : {}),
+          duplex: 'half',
+        } as RequestInit);
+        expect((await factory(options)(request)).status).toBe(413);
+        expect(cancel).toHaveBeenCalledOnce();
+        expect(mockCore.presign).not.toHaveBeenCalled();
+        expect(mockCore.finalize).not.toHaveBeenCalled();
+      }
+    );
+    it(`${factory.name} accepts exactly the limit`, async () => {
+      const body = JSON.stringify({ isPublic: true }).padEnd(16384);
+      const response = await factory(options)(
+        new Request('https://example.test', { method: 'POST', body })
+      );
+      expect(response.status).toBe(200);
+    });
+    it(`${factory.name} rejects invalid UTF-8`, async () => {
+      const response = await factory(options)(
+        new Request('https://example.test', {
+          method: 'POST',
+          body: new Uint8Array([0xff]),
+        })
+      );
+      expect(response.status).toBe(400);
+    });
+  }
 });

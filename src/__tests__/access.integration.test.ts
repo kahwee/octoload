@@ -10,7 +10,7 @@ import type { ImageRecord } from '../types/index.js';
 const storage = vi.hoisted(() => ({
   getPrivateUrl: vi.fn(async () => 'https://storage.test/signed-read'),
   getPublicUrl: vi.fn(() => 'https://cdn.test/public'),
-  deleteObject: vi.fn(async () => undefined),
+  retireObject: vi.fn(async () => undefined),
 }));
 
 vi.mock('../storage/s3-adapter.js', () => ({
@@ -121,7 +121,7 @@ describe('image access through handlers and core', () => {
         })
       ).status
     ).toBe(404);
-    expect(storage.deleteObject).not.toHaveBeenCalled();
+    expect(storage.retireObject).not.toHaveBeenCalled();
     expect(deleteRow).not.toHaveBeenCalled();
   });
 
